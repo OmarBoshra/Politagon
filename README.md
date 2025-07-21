@@ -1,16 +1,16 @@
-# politagon
+# Politagon
+Flutter political strategy game ,
 
-political strategy game
+![politagon_zo6crOMD9Y](https://github.com/user-attachments/assets/e9521c32-0320-43b2-9373-dc5f4570fdf4)
 
-## Getting Started
 
-This project is a starting point for a Flutter application.
+the game takes place during election time , where the user has to collect followers and reach the throne in time before the other players get there first with the required number of followers.
 
-A few resources to get you started if this is your first Flutter project:
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## Rules
+= the user could navigate within the 2d gride right/left/up/down
+- the user tries to collect as many followers as possible , follwers close to the throne are the high ranking members of society , yet they are few , followers far away from the throne are many .
+- thus the user needs to balance and make the right decision at a decisive time when to go to the throne .
+- Once the total score of all users reaches a 100 , then they can access the throne.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+### music and images are AI generated 
