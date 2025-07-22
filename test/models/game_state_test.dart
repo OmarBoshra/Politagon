@@ -145,7 +145,7 @@ void main() {
       expect(initialState.scores['ai2'], 0);
       expect(initialState.turn, 'user');
       expect(initialState.winner, null);
-      expect(initialState.couldReachCenter, null);
+      expect(initialState.couldReachCenter, false);
     });
 
     test('initial should generate grid with sum of 100', () {

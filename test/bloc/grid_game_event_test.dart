@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:bloc_test/bloc_test.dart';
 import 'package:politagon/bloc/grid_game_event.dart';
@@ -5,6 +6,7 @@ import 'package:politagon/models/game_state.dart';
 import 'package:politagon/models/position.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   group('GridGameBloc', () {
     late GridGameBloc bloc;
 
@@ -28,7 +30,7 @@ void main() {
       expect(bloc.state.scores['ai2'], 0);
       expect(bloc.state.turn, 'user');
       expect(bloc.state.winner, null);
-      expect(bloc.state.couldReachCenter, null);
+      expect(bloc.state.couldReachCenter, false);
     });
 
     group('RestartGameEvent', () {
@@ -211,6 +213,22 @@ void main() {
         act: (bloc) => bloc.add(UserMoveEvent(Position(2, 3))),
         verify: (bloc) {
           // After the move, total score should be >= 100
+          final totalScore = bloc.state.scores.values.reduce((a, b) => a + b);
+          if (totalScore >= 100) {
+            expect(bloc.state.couldReachCenter, true);
+          }
+        },
+      );
+
+      blocTest<GridGameBloc, GameState>(
+        'should set couldReachCenter to true when starting from null state',
+        build: () => bloc,
+        seed: () => bloc.state.copyWith(
+          scores: {'user': 40, 'ai1': 35, 'ai2': 20},
+          couldReachCenter: null, // This was the bug - null != false
+        ),
+        act: (bloc) => bloc.add(UserMoveEvent(Position(2, 3))),
+        verify: (bloc) {
           final totalScore = bloc.state.scores.values.reduce((a, b) => a + b);
           if (totalScore >= 100) {
             expect(bloc.state.couldReachCenter, true);

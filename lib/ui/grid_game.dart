@@ -133,54 +133,75 @@ class _GridGameState extends State<GridGame> with TickerProviderStateMixin {
                       child: Center(
                         child: AspectRatio(
                           aspectRatio: 1.0,
-                          child: Stack(
-                            children: [
-                              GridView.builder(
-                                physics: const NeverScrollableScrollPhysics(),
-                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 5,
-                                ),
-                                itemCount: 25,
-                                itemBuilder: (context, index) {
-                                  final pos = Position(index ~/ 5, index % 5);
-                                  return _buildGridCell(context, state, pos);
-                                },
-                              ),
-                              if (state.couldReachCenter == true)
-                                Positioned.fill(
-                                  child: Align(
-                                    alignment: Alignment.center,
-                                    child: IgnorePointer(
-                                      child: AnimatedBuilder(
-                                        animation: _glowAnimationController,
-                                        builder: (context, child) {
-                                          return Container(
-                                            decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: Colors.yellow.withOpacity(0.6 * _glowAnimationController.value),
-                                                  blurRadius: 25 * _glowAnimationController.value,
-                                                  spreadRadius: 10 * _glowAnimationController.value,
-                                                ),
-                                                BoxShadow(
-                                                  color: Colors.orange.withOpacity(0.4 * _glowAnimationController.value),
-                                                  blurRadius: 35 * _glowAnimationController.value,
-                                                  spreadRadius: 20 * _glowAnimationController.value,
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                        },
+                          child: LayoutBuilder( // Use LayoutBuilder to get the constraints of the Stack
+                            builder: (context, constraints) {
+                              final double totalWidth = constraints.maxWidth;
+                              final double totalHeight = constraints.maxHeight;
+                              final double cellWidth = totalWidth / 5.0;
+                              final double cellHeight = totalHeight / 5.0;
+
+                              // The center cell in a 0-indexed 5x5 grid is at (row: 2, col: 2)
+                              final double centerCellLeft = cellWidth * 2;
+                              final double centerCellTop = cellHeight * 2;
+
+                              return Stack(
+                                children: [
+                                  GridView.builder(
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 5,
+                                    ),
+                                    itemCount: 25,
+                                    itemBuilder: (context, index) {
+                                      final pos = Position(index ~/ 5, index % 5);
+                                      return _buildGridCell(context, state, pos);
+                                    },
+                                  ),
+                                  if (state.couldReachCenter == true)
+                                    Positioned(
+                                      left: centerCellLeft,
+                                      top: centerCellTop,
+                                      width: cellWidth,
+                                      height: cellHeight,
+                                      child: IgnorePointer( // Keep IgnorePointer if the glow shouldn't intercept taps
+                                        child: AnimatedBuilder(
+                                          animation: _glowAnimationController,
+                                          builder: (context, child) {
+                                            // The glow effect will now be contained within this Positioned widget,
+                                            // which is exactly the size of the center cell.
+                                            return Container(
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.rectangle, // Or BoxShape.rect if you prefer
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.yellow.withOpacity(0.6 * _glowAnimationController.value),
+                                                    // Adjust blurRadius and spreadRadius to look good
+                                                    // relative to the smaller cell size.
+                                                    // These values might need to be smaller now.
+                                                    blurRadius: 8 * _glowAnimationController.value,  // Example: smaller blur
+                                                    spreadRadius: 3 * _glowAnimationController.value, // Example: smaller spread
+                                                  ),
+                                                  BoxShadow(
+                                                    color: Colors.orange.withOpacity(0.4 * _glowAnimationController.value),
+                                                    blurRadius: 12 * _glowAnimationController.value, // Example: smaller blur
+                                                    spreadRadius: 5 * _glowAnimationController.value,  // Example: smaller spread
+                                                  ),
+                                                ],
+                                              ),
+                                              // Optional: If you want the glow container to be visible for debugging
+                                              // child: Container(color: Colors.red.withOpacity(0.2)),
+                                            );
+                                          },
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ),
-                            ],
+                                ],
+                              );
+                            },
                           ),
                         ),
                       ),
-                    ),
+                    )
                   ],
                 ),
               ),

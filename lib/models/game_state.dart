@@ -55,6 +55,8 @@ class GameState {
       ai2Pos: center,
       scores: {'user': 0, 'ai1': 0, 'ai2': 0},
       turn: 'user',
+      winner: null,
+      couldReachCenter: false,
     );
   }
 }
