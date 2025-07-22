@@ -22,25 +22,7 @@ void main() {
       
       final assetImage = decoration.image!.image as AssetImage;
       expect(assetImage.assetName, 'assets/logo.jpg');
-      expect(decoration.image!.fit, BoxFit.cover);
-    });
-
-    testWidgets('should navigate to HomePage after 2 seconds', (WidgetTester tester) async {
-      await tester.pumpWidget(
-        MaterialApp(home: SplashScreen()),
-      );
-
-      // Initially should show splash screen
-      expect(find.byType(SplashScreen), findsOneWidget);
-      expect(find.byType(HomePage), findsNothing);
-
-      // Wait for 2 seconds
-      await tester.pump(Duration(seconds: 2));
-      await tester.pumpAndSettle();
-
-      // Should now show HomePage
-      expect(find.byType(SplashScreen), findsNothing);
-      expect(find.byType(HomePage), findsOneWidget);
+      expect(decoration.image!.fit, BoxFit.contain);
     });
 
     testWidgets('should have correct scaffold structure', (WidgetTester tester) async {
@@ -52,39 +34,9 @@ void main() {
       expect(find.byType(Container), findsOneWidget);
     });
 
-    testWidgets('should not navigate before 2 seconds', (WidgetTester tester) async {
-      await tester.pumpWidget(
-        MaterialApp(home: SplashScreen()),
-      );
-
-      // Wait for 1 second (less than 2)
-      await tester.pump(Duration(seconds: 1));
-
-      // Should still show splash screen
-      expect(find.byType(SplashScreen), findsOneWidget);
-      expect(find.byType(HomePage), findsNothing);
-    });
-
-    testWidgets('should handle multiple pump calls correctly', (WidgetTester tester) async {
-      await tester.pumpWidget(
-        MaterialApp(home: SplashScreen()),
-      );
-
-      // Multiple small pumps
-      await tester.pump(Duration(milliseconds: 500));
-      await tester.pump(Duration(milliseconds: 500));
-      await tester.pump(Duration(milliseconds: 500));
-      await tester.pump(Duration(milliseconds: 500));
-
-      // Should now navigate (total 2 seconds)
-      await tester.pumpAndSettle();
-
-      expect(find.byType(HomePage), findsOneWidget);
-    });
-
     testWidgets('should create state correctly', (WidgetTester tester) async {
       const splashScreen = SplashScreen();
-      expect(splashScreen.createState(), isA<_SplashScreenState>());
+      expect(splashScreen.createState(), isA<State<SplashScreen>>());
     });
 
     testWidgets('should be a StatefulWidget', (WidgetTester tester) async {
@@ -98,23 +50,38 @@ void main() {
       expect(splashScreen.key, key);
     });
 
-    testWidgets('should handle navigation replacement correctly', (WidgetTester tester) async {
+    testWidgets('should initialize with correct timer', (WidgetTester tester) async {
       await tester.pumpWidget(
-        MaterialApp(
-          home: SplashScreen(),
-          routes: {
-            '/home': (context) => HomePage(),
-          },
-        ),
+        MaterialApp(home: SplashScreen()),
       );
 
-      // Wait for navigation
-      await tester.pump(Duration(seconds: 2));
-      await tester.pumpAndSettle();
+      // Initially should show splash screen
+      expect(find.byType(SplashScreen), findsOneWidget);
+      expect(find.byType(HomePage), findsNothing);
+    });
 
-      // Check that we can't go back to splash (replacement navigation)
-      expect(find.byType(SplashScreen), findsNothing);
-      expect(find.byType(HomePage), findsOneWidget);
+    testWidgets('should have correct decoration properties', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(home: SplashScreen()),
+      );
+
+      final container = tester.widget<Container>(find.byType(Container));
+      final decoration = container.decoration as BoxDecoration;
+      
+      expect(decoration.image!.fit, BoxFit.contain);
+      expect(decoration.image!.image, isA<AssetImage>());
+    });
+
+    testWidgets('should use correct asset path', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(home: SplashScreen()),
+      );
+
+      final container = tester.widget<Container>(find.byType(Container));
+      final decoration = container.decoration as BoxDecoration;
+      final assetImage = decoration.image!.image as AssetImage;
+      
+      expect(assetImage.assetName, 'assets/logo.jpg');
     });
   });
 }

@@ -98,7 +98,8 @@ class GridGameBloc extends Bloc<GridGameEvent, GameState> {
     final score = state.scores[player]!;
     final otherScores = state.scores.values.where((s) => s != score).toList();
     final allScores = state.scores.values.toList();
-    if(state.couldReachCenter == false && sumWithFold(allScores)>= 100){
+    final totalScore = sumWithFold(allScores);
+    if(state.couldReachCenter != true && totalScore >= 100){
       final newState = state.copyWith(couldReachCenter: true);
       emit(newState);
     }
