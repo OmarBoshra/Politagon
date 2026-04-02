@@ -5,130 +5,177 @@ import '../utilities/grid_generator.dart';
 
 class GameStateBuilder {
   static GameState onCellTapGameState(GameState state, GridGameEvent event, Position pos) {
-    if (event is UserMoveEvent || event is Ai1MoveEvent || event is Ai2MoveEvent) {
+    String? playerId;
+    if (event is UserMoveEvent) playerId = event.playerId;
+    if (event is AiMoveEvent) playerId = event.playerId;
+
+    if (playerId != null) {
       final cellValue = state.grid[pos.x][pos.y];
-      final currentPlayer = _getCurrentPlayerKey(event);
-      final newScores = _computeNewScores(
-        scores: state.scores,
-        currentPlayer: currentPlayer,
-        cellValue: cellValue,
-      );
+      final playerIndex = state.players.indexWhere((p) => p.id == playerId);
+      if (playerIndex == -1) return state;
+      final currentPlayer = state.players[playerIndex];
 
-      final nextTurn = _getNextTurn(currentPlayer);
+      final centerIdx = state.gridSize ~/ 2;
+      final distance = (pos.x - centerIdx).abs() + (pos.y - centerIdx).abs();
+      final maxDist = centerIdx * 2; 
+      
+      final targetQuality = (maxDist + 1 - distance) / (maxDist + 1).toDouble(); 
+      final extremeQuality = targetQuality * targetQuality;
 
-      return _buildNewState(
-        state: state,
-        pos: pos,
-        player: currentPlayer,
-        newScores: newScores,
-        nextTurn: nextTurn,
-      );
-    } else {
-      return _buildResetState(state, pos);
-    }
-  }
+      final eliteCaptureNeed = extremeQuality;
+      final grassrootsCaptureNeed = 1.0 - extremeQuality;
+      
+      final captureRate = (currentPlayer.popularity * eliteCaptureNeed + 
+                           currentPlayer.influence * grassrootsCaptureNeed).clamp(0.05, 1.0);
+      
+      final pointsGained = (cellValue * captureRate).ceil();
 
-  static String _getCurrentPlayerKey(GridGameEvent event) {
-    if (event is UserMoveEvent) return 'user';
-    if (event is Ai1MoveEvent) return 'ai1';
-    if (event is Ai2MoveEvent) return 'ai2';
-    throw UnimplementedError('Unhandled event type');
-  }
-
-  static String _getNextTurn(String currentPlayer) {
-    switch (currentPlayer) {
-      case 'user': return 'ai1';
-      case 'ai1': return 'ai2';
-      case 'ai2': return 'user';
-      default: throw UnimplementedError('Unhandled player: $currentPlayer');
-    }
-  }
-
-  static Map<String, int> _computeNewScores({
-    required Map<String, int> scores,
-    required String currentPlayer,
-    required int cellValue,
-  }) {
-    final newScores = Map<String, int>.from(scores);
-    final currentPlayerOldScore = scores[currentPlayer]!;
-
-    // Calculate new score for current player
-    final currentPlayerNewScore = currentPlayerOldScore + cellValue;
-    newScores[currentPlayer] = currentPlayerNewScore;
-
-    // Calculate total score including the new move
-    final totalScore = newScores.values.reduce((a, b) => a + b);
-
-    // Apply penalty only if total exceeds 100
-    if (totalScore > 100) {
-      final excess = totalScore - 100;
-
-      // Identify non-moving players
-      final nonMovingPlayers = scores.keys.where((p) => p != currentPlayer).toList();
-
-      // Calculate total score of non-moving players
-      final nonMovingTotal = nonMovingPlayers.fold(0, (sum, player) => sum + scores[player]!);
-
-      if (nonMovingTotal > 0) {
-        // Distribute penalty proportionally to non-moving players
-        int distributed = 0;
-        for (int i = 0; i < nonMovingPlayers.length; i++) {
-          final player = nonMovingPlayers[i];
-          final playerScore = scores[player]!;
-
-          // Calculate proportional penalty (percentage of total non-moving score)
-          int penalty = (excess * playerScore ~/ nonMovingTotal);
-
-          // If last player, assign remaining penalty to ensure full distribution
-          if (i == nonMovingPlayers.length - 1) {
-            penalty = excess - distributed;
-          }
-
-          // Only subtract if player has points to lose
-          if (playerScore > 0) {
-            final actualPenalty = penalty.clamp(0, playerScore);
-            newScores[player] = playerScore - actualPenalty;
-            distributed += actualPenalty;
-          }
-        }
-
-        // Handle any remaining penalty (if non-moving players couldn't absorb all)
-        final remainingPenalty = excess - distributed;
-        if (remainingPenalty > 0) {
-          newScores[currentPlayer] = currentPlayerNewScore - remainingPenalty;
-        }
+      // No frustration penalty - stats grow normally even during tax events
+      double newInfluence;
+      double newPopularity;
+      
+      if (currentPlayer.score == 0 && pointsGained == 0) {
+        newInfluence = currentPlayer.influence;
+        newPopularity = currentPlayer.popularity;
       } else {
-        // If non-moving players have 0 points, apply full penalty to moving player
-        newScores[currentPlayer] = currentPlayerNewScore - excess;
+        const double baseWeight = 1.0; 
+        final double currentWeight = currentPlayer.score.toDouble();
+        final double totalWeight = currentWeight + pointsGained + baseWeight;
+        
+        final double infContributionWeight = 0.15 + (0.70 * extremeQuality);
+        final double popContributionWeight = 0.15 + (0.70 * (1.0 - extremeQuality));
+
+        final double infWeightedSum = (currentPlayer.influence * currentWeight) + 
+                                      (pointsGained * infContributionWeight) + 
+                                      (0.1 * baseWeight); 
+        newInfluence = (infWeightedSum / totalWeight).clamp(0.05, 1.0);
+
+        final double popWeightedSum = (currentPlayer.popularity * currentWeight) + 
+                                      (pointsGained * popContributionWeight) + 
+                                      (0.1 * baseWeight);
+        newPopularity = (popWeightedSum / totalWeight).clamp(0.05, 1.0);
+      }
+
+      var newPlayers = _updatePlayerState(
+        players: state.players,
+        currentPlayerId: playerId,
+        pointsGained: pointsGained,
+        gainedDistance: distance,
+        newPos: pos,
+        newInfluence: newInfluence,
+        newPopularity: newPopularity,
+      );
+
+      // Apply tax if total score exceeds threshold
+      final totalScore = newPlayers.fold(0, (sum, p) => sum + p.score);
+      if (totalScore > state.winThreshold) {
+        final excess = totalScore - state.winThreshold;
+
+        final nonMovingPlayers = newPlayers.where((p) => p.id != playerId).toList();
+        final nonMovingTotal = nonMovingPlayers.fold(0, (sum, player) => sum + player.score);
+
+        if (nonMovingTotal > 0) {
+          int distributed = 0;
+          newPlayers = newPlayers.map((p) {
+            if (p.id == playerId) return p;
+            int penalty = (excess * p.score ~/ nonMovingTotal);
+            final actualPenalty = penalty.clamp(0, p.score);
+            distributed += actualPenalty;
+            
+            final newVotes = _applyTaxToVotes(p.votesByDistance, actualPenalty);
+            return p.copyWith(votesByDistance: newVotes);
+          }).toList();
+
+          final remainingPenalty = excess - distributed;
+          if (remainingPenalty > 0) {
+             newPlayers = newPlayers.map((p) {
+               if (p.id == playerId) {
+                 final newVotes = _applyTaxToVotes(p.votesByDistance, remainingPenalty);
+                 return p.copyWith(votesByDistance: newVotes);
+               }
+               return p;
+             }).toList();
+          }
+        } else {
+          newPlayers = newPlayers.map((p) {
+            if (p.id == playerId) {
+              final newVotes = _applyTaxToVotes(p.votesByDistance, excess);
+              return p.copyWith(votesByDistance: newVotes);
+            }
+            return p;
+          }).toList();
+        }
+      }
+
+      final nextTurn = _getNextTurn(newPlayers, playerId);
+
+      return state.copyWith(
+        players: newPlayers,
+        grid: GridGenerator.generate(state.gridSize, state.gridSize, state.maxNationalPool),
+        turn: nextTurn,
+      );
+    }
+    return state;
+  }
+
+  static String _getNextTurn(List<GamePlayerState> players, String currentPlayerId) {
+    final currentIndex = players.indexWhere((p) => p.id == currentPlayerId);
+    if (currentIndex == -1) return players.first.id;
+    final nextIndex = (currentIndex + 1) % players.length;
+    return players[nextIndex].id;
+  }
+
+  static List<GamePlayerState> _updatePlayerState({
+    required List<GamePlayerState> players,
+    required String currentPlayerId,
+    required int pointsGained,
+    required int gainedDistance,
+    required Position newPos,
+    required double newInfluence,
+    required double newPopularity,
+  }) {
+    return players.map((p) {
+      if (p.id == currentPlayerId) {
+        final newVotes = Map<int, int>.from(p.votesByDistance);
+        newVotes[gainedDistance] = (newVotes[gainedDistance] ?? 0) + pointsGained;
+        return p.copyWith(
+          pos: newPos,
+          votesByDistance: newVotes,
+          influence: newInfluence,
+          popularity: newPopularity,
+        );
+      }
+      return p;
+    }).toList();
+  }
+
+  static Map<int, int> _applyTaxToVotes(Map<int, int> votes, int totalTax) {
+    final newVotes = Map<int, int>.from(votes);
+    int currentScore = votes.values.fold(0, (s, v) => s + v);
+    if (currentScore <= 0) return newVotes;
+
+    int remainingTax = totalTax;
+    final distances = votes.keys.toList()..sort();
+    
+    for (var d in distances) {
+      if (remainingTax <= 0) break;
+      int v = newVotes[d] ?? 0;
+      if (v <= 0) continue;
+      
+      int tax = (totalTax * v ~/ currentScore).clamp(0, v);
+      newVotes[d] = v - tax;
+      remainingTax -= tax;
+    }
+    
+    if (remainingTax > 0) {
+      for (var d in distances) {
+        if (remainingTax <= 0) break;
+        int v = newVotes[d] ?? 0;
+        int cleanup = remainingTax.clamp(0, v);
+        newVotes[d] = v - cleanup;
+        remainingTax -= cleanup;
       }
     }
-
-    return newScores;
-  }
-
-  static GameState _buildNewState({
-    required GameState state,
-    required Position pos,
-    required String player,
-    required Map<String, int> newScores,
-    required String nextTurn,
-  }) {
-    return state.copyWith(
-      userPos: player == 'user' ? pos : state.userPos,
-      ai1Pos: player == 'ai1' ? pos : state.ai1Pos,
-      ai2Pos: player == 'ai2' ? pos : state.ai2Pos,
-      scores: newScores,
-      grid: GridGenerator.generate(5, 5),
-      turn: nextTurn,
-    );
-  }
-
-  static GameState _buildResetState(GameState state, Position pos) {
-    return state.copyWith(
-      userPos: pos,
-      scores: {'user': 0, 'ai1': 0, 'ai2': 0},
-      grid: GridGenerator.generate(5, 5),
-      turn: 'ai1',
-    );
+    return newVotes;
   }
 }

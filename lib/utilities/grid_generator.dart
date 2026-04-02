@@ -1,7 +1,7 @@
 import 'dart:math';
 
 class GridGenerator {
-  static List<List<int>> generate(int rows, int cols) {
+  static List<List<int>> generate(int rows, int cols, int targetSum) {
     final centerX = rows ~/ 2;
     final centerY = cols ~/ 2;
     final random = Random();
@@ -23,17 +23,19 @@ class GridGenerator {
     // Calculate weights and target totals for each distance
     final weights = distances.map((d) => (d + 1) * counts[distances.indexOf(d)]).toList();
     final totalWeight = weights.reduce((a, b) => a + b);
-    final targets = weights.map((w) => (w * 100) ~/ totalWeight).toList();
+    final targets = weights.map((w) => (w * targetSum) ~/ totalWeight).toList();
 
-    // Adjust targets to sum to 100
-    int currentTotal = targets.reduce((a, b) => a + b);
-    int remainder = 100 - currentTotal;
+    // Adjust targets to sum to targetSum
+    int currentTotal = targets.isEmpty ? 0 : targets.reduce((a, b) => a + b);
+    int remainder = targetSum - currentTotal;
     int index = distances.length - 1; // Start from farthest distance
 
-    while (remainder > 0) {
-      targets[index] += 1;
-      remainder -= 1;
-      index = (index - 1 + distances.length) % distances.length; // Move to next farthest
+    if (distances.isNotEmpty) {
+      while (remainder > 0) {
+        targets[index] += 1;
+        remainder -= 1;
+        index = (index - 1 + distances.length) % distances.length; // Move to next farthest
+      }
     }
 
     // Initialize grid with zeros
