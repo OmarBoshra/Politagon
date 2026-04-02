@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:media_kit/media_kit.dart';
 import 'package:politagon/ui/splash_screen.dart';
+import 'package:politagon/ui/video_player_page.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  MediaKit.ensureInitialized();
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   runApp(const MyRootApp());
 }
 
@@ -15,11 +21,11 @@ class MyRootApp extends StatelessWidget {
       title: 'Politagon',
       theme: ThemeData(
         brightness: Brightness.dark,
-        primaryColor: const Color(0xFF1A237E), // Deep Indigo
-        scaffoldBackgroundColor: const Color(0xFF0D1117), // Very Dark Grey
+        primaryColor: const Color(0xFF1A237E), 
+        scaffoldBackgroundColor: const Color(0xFF0D1117), 
         colorScheme: const ColorScheme.dark(
-          primary: Color(0xFFC5A059), // Gold/Brass Accent
-          secondary: Color(0xFF4DB6AC), // Slate Teal
+          primary: Color(0xFFC5A059), 
+          secondary: Color(0xFF4DB6AC), 
           surface: Color(0xFF161B22),
           onSurface: Colors.white70,
         ),
@@ -57,7 +63,7 @@ class MyRootApp extends StatelessWidget {
           overlayColor: const Color(0xFFC5A059).withOpacity(0.2),
         ),
         checkboxTheme: CheckboxThemeData(
-          fillColor: MaterialStateProperty.all(const Color(0xFFC5A059)),
+          fillColor: WidgetStateProperty.all(const Color(0xFFC5A059)),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
@@ -69,7 +75,34 @@ class MyRootApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const SplashScreen(),
+      home: const InitialFlowWrapper(),
+    );
+  }
+}
+
+class InitialFlowWrapper extends StatefulWidget {
+  const InitialFlowWrapper({super.key});
+
+  @override
+  State<InitialFlowWrapper> createState() => _InitialFlowWrapperState();
+}
+
+class _InitialFlowWrapperState extends State<InitialFlowWrapper> {
+  bool _showThriller = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(seconds: 1),
+      child: _showThriller
+          ? VideoPlayerPage(
+              key: const ValueKey('thriller'),
+              assetPath: 'assets/videos/politagon_thriller.mp4',
+              onFinished: () {
+                setState(() => _showThriller = false);
+              },
+            )
+          : const SplashScreen(key: ValueKey('splash')),
     );
   }
 }

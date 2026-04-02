@@ -1,11 +1,11 @@
-import 'dart:math';
+import 'package:flutter/material.dart';
 import 'package:politagon/models/position.dart';
-import '../utilities/grid_generator.dart';
-
-enum SocialClass { elite, noble, middle, layman, poor }
+import 'game_player_state.dart';
 
 class GameState {
   final List<List<int>> grid;
+  final List<List<Map<String, int>>> gridOwnership;
+  final List<List<String?>> gridMajority;
   final List<GamePlayerState> players;
   final String turn;
   final String? winner;
@@ -14,9 +14,12 @@ class GameState {
 
   final bool isSpectating;
   final String? spectatedPlayerId;
+  final bool stepByStepMode;
 
   GameState({
     required this.grid,
+    required this.gridOwnership,
+    required this.gridMajority,
     required this.players,
     required this.turn,
     required this.gridSize,
@@ -24,13 +27,16 @@ class GameState {
     this.couldReachCenter,
     this.isSpectating = false,
     this.spectatedPlayerId,
+    this.stepByStepMode = false,
   });
 
-  int get winThreshold => gridSize * 20;
+  int get winThreshold => (maxNationalPool * 0.75).ceil();
   int get maxNationalPool => gridSize * gridSize * 4;
 
   GameState copyWith({
     List<List<int>>? grid,
+    List<List<Map<String, int>>>? gridOwnership,
+    List<List<String?>>? gridMajority,
     List<GamePlayerState>? players,
     String? turn,
     int? gridSize,
@@ -38,9 +44,12 @@ class GameState {
     bool? couldReachCenter,
     bool? isSpectating,
     String? spectatedPlayerId,
+    bool? stepByStepMode,
   }) {
     return GameState(
       grid: grid ?? this.grid,
+      gridOwnership: gridOwnership ?? this.gridOwnership,
+      gridMajority: gridMajority ?? this.gridMajority,
       players: players ?? this.players,
       turn: turn ?? this.turn,
       gridSize: gridSize ?? this.gridSize,
@@ -48,6 +57,7 @@ class GameState {
       couldReachCenter: couldReachCenter ?? this.couldReachCenter,
       isSpectating: isSpectating ?? this.isSpectating,
       spectatedPlayerId: spectatedPlayerId ?? this.spectatedPlayerId,
+      stepByStepMode: stepByStepMode ?? this.stepByStepMode,
     );
   }
 
@@ -55,27 +65,10 @@ class GameState {
     if (distance == 0) return 'The Politagon';
     
     const titles = [
-      'The Politagon',
-      'High Council',
-      'Inner Circle',
-      'Aristocracy',
-      'Patricians',
-      'The Nobility',
-      'Gentry',
-      'Magistrates',
-      'Burgesses',
-      'The Guilds',
-      'Middle Class',
-      'Artisans',
-      'Freeholders',
-      'The Commonry',
-      'Laymen',
-      'Peasantry',
-      'The Proletariat',
-      'Serfs',
-      'The Poor',
-      'Outcasts',
-      'The Forgotten',
+      'The Politagon', 'High Council', 'Inner Circle', 'Aristocracy', 'Patricians',
+      'The Nobility', 'Gentry', 'Magistrates', 'Burgesses', 'The Guilds',
+      'Middle Class', 'Artisans', 'Freeholders', 'The Commonry', 'Laymen',
+      'Peasantry', 'The Proletariat', 'Serfs', 'The Poor', 'Outcasts', 'The Forgotten',
     ];
 
     if (distance < titles.length) {
@@ -86,145 +79,46 @@ class GameState {
     return 'Level $distance';
   }
 
-  static GameState initial({
-    List<String> humanNames = const ['The Candidate'], 
-    bool ai1 = true, 
-    bool ai2 = true, 
-    bool ai3 = false, 
-    bool ai4 = false, 
-    int gridSize = 5
-  }) {
-    final random = Random();
-    final initialPool = gridSize * gridSize * 4;
-    final grid = GridGenerator.generate(gridSize, gridSize, initialPool);
-    final players = <GamePlayerState>[];
+  static List<Color> getSocialClassPalette(int distance, int maxDist) {
+    // Distance 0 is the center (The Politagon). 
+    // We use a deep "Obsidian" background so the golden chair and sun-glow pop.
+    if (distance == 0) return [const Color(0xFF0D0D0D), const Color(0xFF1A1A1A)]; 
 
-    final centerIdx = gridSize ~/ 2;
-    final maxDist = centerIdx * 2;
+    const baseColors = [
+      Color(0xFF1A237E), // Deep Indigo (High Council)
+      Color(0xFF4A148C), // Purple (Inner Circle)
+      Color(0xFF01579B), // Blue (Aristocracy)
+      Color(0xFF006064), // Cyan/Teal (Patricians)
+      Color(0xFF1B5E20), // Green (Middle Class)
+      Color(0xFF827717), // Olive (Artisans)
+      Color(0xFFF57F17), // Orange/Amber (Commonry)
+      Color(0xFFE65100), // Deep Orange (Peasantry)
+      Color(0xFF3E2723), // Brown (Serfs)
+      Color(0xFF212121), // Charcoal (Underclass)
+    ];
 
-    double calculateStartingStat(Position pos, bool isInfluence) {
-      final distance = (pos.x - centerIdx).abs() + (pos.y - centerIdx).abs();
-      if (isInfluence) {
-        return (maxDist + 1 - distance) / (maxDist + 1).toDouble();
-      } else {
-        return (distance + 1) / (maxDist + 1).toDouble();
-      }
-    }
+    if (maxDist <= 0) return [baseColors[0], baseColors[0]];
 
-    for (int i = 0; i < humanNames.length; i++) {
-      final pos = Position(random.nextInt(gridSize), random.nextInt(gridSize));
-      players.add(GamePlayerState(
-        id: 'user${i+1}',
-        name: humanNames[i].isEmpty ? 'Candidate ${i+1}' : humanNames[i],
-        pos: pos,
-        type: PlayerType.human,
-        colorIndex: i,
-        influence: calculateStartingStat(pos, true),
-        popularity: calculateStartingStat(pos, false),
-      ));
-    }
+    final double ratio = (distance - 1) / (maxDist == 1 ? 1 : maxDist - 1);
+    final double scaledRatio = ratio.clamp(0.0, 1.0) * (baseColors.length - 1);
+    final int index = scaledRatio.floor();
+    final int nextIndex = (index + 1).clamp(0, baseColors.length - 1);
+    final double localRatio = scaledRatio - index;
 
-    if (ai1) {
-      final pos = Position(random.nextInt(gridSize), random.nextInt(gridSize));
-      players.add(GamePlayerState(
-        id: 'ai1',
-        name: 'The Firebrand',
-        pos: pos,
-        type: PlayerType.ai1,
-        influence: calculateStartingStat(pos, true),
-        popularity: calculateStartingStat(pos, false),
-      ));
-    }
-    if (ai2) {
-      final pos = Position(random.nextInt(gridSize), random.nextInt(gridSize));
-      players.add(GamePlayerState(
-        id: 'ai2',
-        name: 'The Pragmatist',
-        pos: pos,
-        type: PlayerType.ai2,
-        influence: calculateStartingStat(pos, true),
-        popularity: calculateStartingStat(pos, false),
-      ));
-    }
-    if (ai3) {
-      final pos = Position(random.nextInt(gridSize), random.nextInt(gridSize));
-      players.add(GamePlayerState(
-        id: 'ai3',
-        name: 'The Technocrat',
-        pos: pos,
-        type: PlayerType.ai3,
-        influence: calculateStartingStat(pos, true),
-        popularity: calculateStartingStat(pos, false),
-      ));
-    }
-    if (ai4) {
-      final pos = Position(random.nextInt(gridSize), random.nextInt(gridSize));
-      players.add(GamePlayerState(
-        id: 'ai4',
-        name: 'The Visionary',
-        pos: pos,
-        type: PlayerType.ai4,
-        influence: calculateStartingStat(pos, true),
-        popularity: calculateStartingStat(pos, false),
-      ));
-    }
+    final primary = Color.lerp(baseColors[index], baseColors[nextIndex], localRatio)!;
+    final secondary = Color.lerp(primary, Colors.white, 0.2)!;
 
-    return GameState(
-      grid: grid,
-      players: players,
-      turn: players.isNotEmpty ? players.first.id : 'user1',
-      gridSize: gridSize,
-      winner: null,
-      couldReachCenter: false,
-    );
+    return [primary, secondary];
   }
-}
 
-enum PlayerType { human, ai1, ai2, ai3, ai4 }
-
-class GamePlayerState {
-  final String id;
-  final String name;
-  final Position pos;
-  final Map<int, int> votesByDistance;
-  final double influence;
-  final double popularity;
-  final PlayerType type;
-  final int colorIndex;
-  final Position? targetPos;
-
-  int get score => votesByDistance.values.fold(0, (sum, val) => sum + val);
-
-  GamePlayerState({
-    required this.id,
-    required this.name,
-    required this.pos,
-    Map<int, int>? votesByDistance,
-    this.influence = 0.1,
-    this.popularity = 0.1,
-    required this.type,
-    this.colorIndex = 0,
-    this.targetPos,
-  }) : votesByDistance = votesByDistance ?? {};
-
-  GamePlayerState copyWith({
-    Position? pos,
-    Map<int, int>? votesByDistance,
-    double? influence,
-    double? popularity,
-    Position? targetPos,
-    bool clearTarget = false,
-  }) {
-    return GamePlayerState(
-      id: id,
-      name: name,
-      pos: pos ?? this.pos,
-      votesByDistance: votesByDistance ?? this.votesByDistance,
-      influence: influence ?? this.influence,
-      popularity: popularity ?? this.popularity,
-      type: type,
-      colorIndex: colorIndex,
-      targetPos: clearTarget ? null : (targetPos ?? this.targetPos),
-    );
+  static IconData getSocialClassIcon(int distance, int maxDist) {
+    if (distance == 0) return Icons.account_balance; // The Politagon
+    
+    final ratio = distance / maxDist;
+    if (ratio < 0.2) return Icons.stars;
+    if (ratio < 0.4) return Icons.gavel;
+    if (ratio < 0.6) return Icons.work;
+    if (ratio < 0.8) return Icons.groups;
+    return Icons.person_outline;
   }
 }

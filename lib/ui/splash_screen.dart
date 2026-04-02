@@ -87,7 +87,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               ),
               const SizedBox(height: 10),
               Text(
-                'THE ART OF POWER',
+                'THE ART OF POWER POLITICS',
                 style: TextStyle(
                   color: Colors.white.withOpacity(0.5),
                   letterSpacing: 4.0,
