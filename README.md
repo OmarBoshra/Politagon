@@ -16,4 +16,7 @@ For help getting started with Flutter development, view the
 samples, guidance on mobile development, and a full API reference.
 
 # todo 
-- better infobox
+- better song 
+- app icon
+- start with music on and remove noise .
+- android compatability

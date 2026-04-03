@@ -29,6 +29,7 @@ class GridGameBloc extends Bloc<GridGameEvent, GameState> {
   final bool initialAi4;
   final bool initialAi5;
   final int initialGridSize;
+  final double decidedThresholdPercentage;
 
   final Map<PlayerType, AiStrategy> _aiStrategies = {
     PlayerType.ai1: FirebrandStrategy(),
@@ -45,7 +46,8 @@ class GridGameBloc extends Bloc<GridGameEvent, GameState> {
     bool ai3 = false, 
     bool ai4 = false, 
     bool ai5 = false,
-    int gridSize = 5
+    int gridSize = 5,
+    this.decidedThresholdPercentage = 0.5,
   })  : initialHumanNames = humanNames,
         initialAi1 = ai1,
         initialAi2 = ai2,
@@ -53,7 +55,16 @@ class GridGameBloc extends Bloc<GridGameEvent, GameState> {
         initialAi4 = ai4,
         initialAi5 = ai5,
         initialGridSize = gridSize,
-        super(GameInitializer.createInitialState(humanNames: humanNames, ai1: ai1, ai2: ai2, ai3: ai3, ai4: ai4, ai5: ai5, gridSize: gridSize)) {
+        super(GameInitializer.createInitialState(
+          humanNames: humanNames, 
+          ai1: ai1, 
+          ai2: ai2, 
+          ai3: ai3, 
+          ai4: ai4, 
+          ai5: ai5, 
+          gridSize: gridSize,
+          decidedThresholdPercentage: decidedThresholdPercentage,
+        )) {
     on<UserMoveEvent>(_onUserMove);
     on<AiMoveEvent>(_onAiMove);
     on<RestartGameEvent>(_onRestartGame);
@@ -79,6 +90,7 @@ class GridGameBloc extends Bloc<GridGameEvent, GameState> {
       ai4: initialAi4,
       ai5: initialAi5,
       gridSize: initialGridSize,
+      decidedThresholdPercentage: decidedThresholdPercentage,
     ).copyWith(stepByStepMode: state.stepByStepMode)); 
   }
 
@@ -90,8 +102,6 @@ class GridGameBloc extends Bloc<GridGameEvent, GameState> {
     if (remainingPlayers.isEmpty) return;
     
     final newGridOwnership = GridManager.convertPlayerPointsToUndecided(state.gridOwnership, event.playerId);
-    final remainingTotalScore = remainingPlayers.fold<int>(0, (sum, p) => sum + ScoreCalculator.calculateScore(state, p.id));
-    final shouldLockCenter = remainingTotalScore < state.winThreshold;
     
     String nextTurn = state.turn;
     if (state.turn == event.playerId) {
@@ -105,7 +115,6 @@ class GridGameBloc extends Bloc<GridGameEvent, GameState> {
         players: remainingPlayers,
         winner: winner.name,
         turn: winner.id,
-        couldReachCenter: shouldLockCenter ? false : state.couldReachCenter,
         isSpectating: winner.type != PlayerType.human,
         spectatedPlayerId: winner.id,
         gridOwnership: newGridOwnership,
@@ -118,7 +127,6 @@ class GridGameBloc extends Bloc<GridGameEvent, GameState> {
     final newState = state.copyWith(
       players: remainingPlayers,
       turn: nextTurn,
-      couldReachCenter: shouldLockCenter ? false : state.couldReachCenter,
       isSpectating: allAi,
       spectatedPlayerId: nextTurn,
       gridOwnership: newGridOwnership,

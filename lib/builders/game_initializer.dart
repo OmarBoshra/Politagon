@@ -13,6 +13,7 @@ class GameInitializer {
     bool ai4 = false,
     bool ai5 = false,
     int gridSize = 5,
+    double decidedThresholdPercentage = 0.51,
   }) {
     final random = Random();
     final initialPool = gridSize * gridSize * 4;
@@ -98,6 +99,7 @@ class GameInitializer {
       gridSize: gridSize,
       winner: null,
       couldReachCenter: false,
+      decidedThresholdPercentage: decidedThresholdPercentage,
     );
   }
 }

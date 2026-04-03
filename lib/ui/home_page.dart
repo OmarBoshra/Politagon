@@ -12,6 +12,7 @@ class HomePage extends StatelessWidget {
   final bool ai4;
   final bool ai5;
   final int gridSize;
+  final double decidedThresholdPercentage;
 
   const HomePage({
     super.key,
@@ -22,6 +23,7 @@ class HomePage extends StatelessWidget {
     this.ai4 = false,
     this.ai5 = false,
     this.gridSize = 5,
+    this.decidedThresholdPercentage = 0.5,
   });
 
   @override
@@ -35,6 +37,7 @@ class HomePage extends StatelessWidget {
         ai4: ai4,
         ai5: ai5,
         gridSize: gridSize,
+        decidedThresholdPercentage: decidedThresholdPercentage,
       ),
       child: const GridGame(),
     );

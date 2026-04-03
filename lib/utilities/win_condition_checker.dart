@@ -3,23 +3,10 @@ import '../models/position.dart';
 import 'score_calculator.dart';
 
 class WinConditionChecker {
-  static bool isUndecidedPoolEmpty(GameState state) {
-    for (var row in state.gridOwnership) {
-      for (var cell in row) {
-        if ((cell['undecided'] ?? 0) > 0) return false;
-      }
-    }
-    return true;
-  }
-
-  static bool hasAnyPlayerMajority(GameState state) {
+  static bool hasMetDecidedThreshold(GameState state) {
     final totalPoints = state.maxNationalPool;
-    for (var p in state.players) {
-      if (ScoreCalculator.calculateScore(state, p.id) > (totalPoints / 2)) {
-        return true;
-      }
-    }
-    return false;
+    final totalDecidedPoints = ScoreCalculator.calculateTotalPlayerScore(state);
+    return totalDecidedPoints >= (totalPoints * state.decidedThresholdPercentage);
   }
 
   static GameState checkWin(GameState state, String lastMovePlayerId) {
@@ -29,9 +16,8 @@ class WinConditionChecker {
     final center = Position(centerIdx, centerIdx);
     
     // The conditions for the chair to be unlocked:
-    // 1. One player has an absolute majority (> 50% of total points)
-    // 2. Or, all undecided points have been claimed by players.
-    final bool currentlyMeetsCriteria = hasAnyPlayerMajority(state) || isUndecidedPoolEmpty(state);
+    // Enough points have been claimed (based on decidedThresholdPercentage)
+    final bool currentlyMeetsCriteria = hasMetDecidedThreshold(state);
     
     // Update the unlock state dynamically. It can relock if criteria are no longer met.
     state = state.copyWith(couldReachCenter: currentlyMeetsCriteria);

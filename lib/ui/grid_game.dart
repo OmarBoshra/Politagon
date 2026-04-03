@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:audioplayers/audioplayers.dart' as ap;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../bloc/grid_game_event.dart';
 import '../bloc/grid_game_bloc.dart';
@@ -75,6 +76,11 @@ class _GridGameState extends State<GridGame> with TickerProviderStateMixin {
   Future<void> _initAudio() async {
     await _audioPlayer.setReleaseMode(ap.ReleaseMode.loop);
     await _audioPlayer.setSource(ap.AssetSource('sounds/background.m4a'));
+    // Start music by default
+    await _audioPlayer.resume();
+    if (mounted) {
+      setState(() => _isMusicPlaying = true);
+    }
   }
 
   void _toggleMusic() async {
@@ -124,6 +130,15 @@ class _GridGameState extends State<GridGame> with TickerProviderStateMixin {
     }
   }
 
+  void _showDossier() {
+    // Show the dossier from the GameOptionsPage context. 
+    // Since GameDialogs doesn't have it, and we want consistency, we'll re-implement or find it.
+    // In a real app, I'd extract this to a utility, but for now I will recreate the call to match UI.
+    // However, looking at game_options_page.dart, the _showRules is private.
+    // I will add a method to GameDialogs to show the dossier to keep it clean.
+    GameDialogs.showDossier(context);
+  }
+
   @override
   void dispose() {
     _glowAnimationController.dispose();
@@ -156,6 +171,11 @@ class _GridGameState extends State<GridGame> with TickerProviderStateMixin {
               title: Text(state.isSpectating ? 'SPECTATOR MODE: ${viewedPlayer?.name ?? ""}' : 'POLITAGON OPERATIONAL GRID'),
               centerTitle: true,
               actions: [
+                IconButton(
+                  icon: const Icon(Icons.menu_book, color: Color(0xFFC5A059)),
+                  onPressed: _showDossier,
+                  tooltip: 'Read Dossier',
+                ),
                 IconButton(
                   icon: Icon(state.stepByStepMode ? Icons.slow_motion_video : Icons.speed), 
                   onPressed: () => context.read<GridGameBloc>().add(ToggleStepByStepModeEvent()),

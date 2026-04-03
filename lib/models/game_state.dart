@@ -16,6 +16,8 @@ class GameState {
   final String? spectatedPlayerId;
   final bool stepByStepMode;
 
+  final double decidedThresholdPercentage;
+
   GameState({
     required this.grid,
     required this.gridOwnership,
@@ -28,6 +30,7 @@ class GameState {
     this.isSpectating = false,
     this.spectatedPlayerId,
     this.stepByStepMode = false,
+    this.decidedThresholdPercentage = 0.51,
   });
 
   int get winThreshold => (maxNationalPool * 0.75).ceil();
@@ -45,6 +48,7 @@ class GameState {
     bool? isSpectating,
     String? spectatedPlayerId,
     bool? stepByStepMode,
+    double? decidedThresholdPercentage,
   }) {
     return GameState(
       grid: grid ?? this.grid,
@@ -58,6 +62,7 @@ class GameState {
       isSpectating: isSpectating ?? this.isSpectating,
       spectatedPlayerId: spectatedPlayerId ?? this.spectatedPlayerId,
       stepByStepMode: stepByStepMode ?? this.stepByStepMode,
+      decidedThresholdPercentage: decidedThresholdPercentage ?? this.decidedThresholdPercentage,
     );
   }
 
@@ -80,8 +85,6 @@ class GameState {
   }
 
   static List<Color> getSocialClassPalette(int distance, int maxDist) {
-    // Distance 0 is the center (The Politagon). 
-    // We use a deep "Obsidian" background so the golden chair and sun-glow pop.
     if (distance == 0) return [const Color(0xFF0D0D0D), const Color(0xFF1A1A1A)]; 
 
     const baseColors = [
@@ -112,7 +115,7 @@ class GameState {
   }
 
   static IconData getSocialClassIcon(int distance, int maxDist) {
-    if (distance == 0) return Icons.account_balance; // The Politagon
+    if (distance == 0) return Icons.account_balance; 
     
     final ratio = distance / maxDist;
     if (ratio < 0.2) return Icons.stars;
