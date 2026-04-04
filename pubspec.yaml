@@ -16,10 +16,14 @@ dependencies:
   flutter_svg: ^2.2.0
   cupertino_icons: ^1.0.8
   shared_preferences: ^2.3.5
-  # High-performance video engine for Windows
+  # High-performance video engine
   media_kit: ^1.1.10
   media_kit_video: ^1.2.4
   media_kit_libs_video: ^1.0.4
+  media_kit_libs_android_video: ^1.0.0
+
+dependency_overrides:
+  media_kit_video: 1.2.4
 
 dev_dependencies:
   flutter_test:

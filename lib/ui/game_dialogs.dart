@@ -9,47 +9,86 @@ import '../bloc/grid_game_event.dart';
 
 class GameDialogs {
   static void showPointStatus(BuildContext context, GameState state) {
+    final int threshold = (state.maxNationalPool * state.decidedThresholdPercentage).ceil();
+    int totalDecided = 0;
+    for (var p in state.players) {
+      totalDecided += ScoreCalculator.calculateScore(state, p.id);
+    }
+    final double progress = (totalDecided / threshold).clamp(0.0, 1.0);
+    final int centerIdx = state.gridSize ~/ 2;
+    final int maxDist = centerIdx * 2;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF161B22),
         title: const Text('POLITICAL CAPITAL AUDIT', style: TextStyle(color: Color(0xFFC5A059), letterSpacing: 1.5)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('National Pool: ${state.maxNationalPool} total points', style: const TextStyle(color: Colors.white70)),
-            const SizedBox(height: 12),
-            const Text('DISTRIBUTION BY CANDIDATE:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-            const Divider(color: Colors.white10),
-            ...state.players.map((p) {
-              final score = ScoreCalculator.calculateScore(state, p.id);
-              final pct = (score / state.maxNationalPool * 100).toStringAsFixed(1);
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(p.name, style: const TextStyle(color: Colors.white60)),
-                    Text('$score ($pct%)', style: const TextStyle(color: Color(0xFFC5A059), fontWeight: FontWeight.bold)),
-                  ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('National Pool: ${state.maxNationalPool} total points', style: const TextStyle(color: Colors.white70)),
+              const SizedBox(height: 20),
+              
+              const Text('MATURITY TOWARDS UNLOCKING:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10, letterSpacing: 1.2)),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  backgroundColor: Colors.white10,
+                  color: state.couldReachCenter == true ? Colors.greenAccent : const Color(0xFFC5A059),
+                  minHeight: 8,
                 ),
-              );
-            }),
-            const Divider(color: Colors.white10),
-            Text(
-              'Unlocking Threshold: ${(state.maxNationalPool * state.decidedThresholdPercentage).ceil()} points (${(state.decidedThresholdPercentage * 100).toInt()}%)',
-              style: const TextStyle(color: Colors.white38, fontSize: 11),
-            ),
-            Text(
-              'Status: ${state.couldReachCenter == true ? "CENTER UNLOCKED" : "CENTER SEALED"}',
-              style: TextStyle(
-                color: state.couldReachCenter == true ? Colors.greenAccent : Colors.redAccent,
-                fontWeight: FontWeight.bold,
-                fontSize: 11,
               ),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('$totalDecided / $threshold pts', style: const TextStyle(color: Colors.white38, fontSize: 10)),
+                  Text('${(progress * 100).toInt()}%', style: TextStyle(color: state.couldReachCenter == true ? Colors.greenAccent : const Color(0xFFC5A059), fontSize: 10, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              
+              const SizedBox(height: 24),
+              const Text('DISTRIBUTION BY CANDIDATE:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+              const Divider(color: Colors.white10),
+              ...state.players.map((p) {
+                final score = ScoreCalculator.calculateScore(state, p.id);
+                final pct = (score / state.maxNationalPool * 100).toStringAsFixed(1);
+                final dist = (p.pos.x - centerIdx).abs() + (p.pos.y - centerIdx).abs();
+                final className = GameState.getSocialClassName(dist, maxDist);
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Flexible(child: Text(p.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+                          Text('$score ($pct%)', style: const TextStyle(color: Color(0xFFC5A059), fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      Text(className.toUpperCase(), style: const TextStyle(color: Colors.white38, fontSize: 9, letterSpacing: 1.2)),
+                    ],
+                  ),
+                );
+              }),
+              const Divider(color: Colors.white10),
+              const SizedBox(height: 8),
+              Text(
+                'Status: ${state.couldReachCenter == true ? "CENTER UNLOCKED" : "CENTER SEALED"}',
+                style: TextStyle(
+                  color: state.couldReachCenter == true ? Colors.greenAccent : Colors.redAccent,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('DISMISS', style: TextStyle(color: Color(0xFFC5A059)))),
@@ -59,6 +98,10 @@ class GameDialogs {
   }
 
   static void showDossier(BuildContext context, {bool isFirstTime = false}) {
+    final width = MediaQuery.of(context).size.width;
+    final dialogWidth = width > 600 ? 500.0 : width * 0.9;
+    final isAndroid = Theme.of(context).platform == TargetPlatform.android;
+
     showDialog(
       context: context,
       barrierDismissible: !isFirstTime,
@@ -69,7 +112,7 @@ class GameDialogs {
           borderRadius: BorderRadius.zero,
         ),
         child: SizedBox(
-          width: 500,
+          width: dialogWidth,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -82,18 +125,26 @@ class GameDialogs {
                   children: [
                     const Icon(Icons.menu_book, color: Color(0xFFC5A059), size: 28),
                     const SizedBox(width: 16),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'THE POLITAGON DOSSIER',
-                          style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 18, letterSpacing: 2.0, color: Colors.white),
-                        ),
-                        Text(
-                          isFirstTime ? 'NEW CANDIDATE ORIENTATION' : 'CLASSIFIED STRATEGY HANDBOOK',
-                          style: const TextStyle(color: Colors.white24, fontSize: 10, letterSpacing: 1.5),
-                        ),
-                      ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isAndroid ? 'THE DOSSIER' : 'THE POLITAGON DOSSIER',
+                            style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                              fontSize: 18, 
+                              letterSpacing: 2.0, 
+                              color: Colors.white,
+                            ),
+                            softWrap: true,
+                          ),
+                          Text(
+                            isFirstTime ? 'NEW CANDIDATE ORIENTATION' : 'CLASSIFIED STRATEGY HANDBOOK',
+                            style: const TextStyle(color: Colors.white24, fontSize: 10, letterSpacing: 1.5),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -221,33 +272,36 @@ class GameDialogs {
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF161B22),
         title: Text(className.toUpperCase(), style: const TextStyle(color: Color(0xFFC5A059), letterSpacing: 1.5)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Position: (${pos.x}, ${pos.y})', style: const TextStyle(color: Colors.white38, fontSize: 11)),
-            const SizedBox(height: 12),
-            const Text('VOTER DISTRIBUTION:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-            const Divider(color: Colors.white10),
-            ...cell.entries.where((e) => e.value > 0).map((e) {
-              String name = e.key;
-              if (e.key == 'undecided') name = 'Undecided';
-              else {
-                final p = state.players.firstWhere((player) => player.id == e.key, orElse: () => state.players.first);
-                name = p.name;
-              }
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(name, style: const TextStyle(color: Colors.white60)),
-                    Text('${e.value}', style: const TextStyle(color: Color(0xFFC5A059), fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              );
-            }),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Position: (${pos.x}, ${pos.y})', style: const TextStyle(color: Colors.white38, fontSize: 11)),
+              const SizedBox(height: 12),
+              const Text('VOTER DISTRIBUTION:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+              const Divider(color: Colors.white10),
+              ...cell.entries.where((e) => e.value > 0).map((e) {
+                String name = e.key;
+                if (e.key == 'undecided') name = 'Undecided';
+                else {
+                  final p = state.players.firstWhere((player) => player.id == e.key, orElse: () => state.players.first);
+                  name = p.name;
+                }
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(child: Text(name, style: const TextStyle(color: Colors.white60), overflow: TextOverflow.ellipsis)),
+                      const SizedBox(width: 8),
+                      Text('${e.value}', style: const TextStyle(color: Color(0xFFC5A059), fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('CLOSE', style: TextStyle(color: Color(0xFFC5A059)))),
@@ -288,9 +342,12 @@ class GameDialogs {
           children: [
             Icon(icon, size: 16, color: const Color(0xFFC5A059)),
             const SizedBox(width: 12),
-            Text(
-              title,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),
@@ -339,24 +396,27 @@ class GameDialogs {
         const SizedBox(width: 20),
         const Icon(Icons.arrow_right_alt, color: Colors.white24),
         const SizedBox(width: 10),
-        const Text('CARDINAL MOVES', style: TextStyle(color: Colors.white38, fontSize: 10, letterSpacing: 1)),
+        const Flexible(child: Text('CARDINAL MOVES', style: TextStyle(color: Colors.white38, fontSize: 10, letterSpacing: 1))),
       ],
     );
   }
 
   static Widget _buildCaptureVisual() {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(color: Colors.white.withOpacity(0.02), border: Border.all(color: Colors.white10)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _statBox('UNDECIDED', '1st', Colors.grey),
-          const Icon(Icons.chevron_right, color: Colors.white24, size: 14),
-          _statBox('WEAK RIVAL', '2nd', Colors.redAccent.withOpacity(0.5)),
-          const Icon(Icons.chevron_right, color: Colors.white24, size: 14),
-          _statBox('STRONG RIVAL', '3rd', Colors.redAccent),
-        ],
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(color: Colors.white.withOpacity(0.02), border: Border.all(color: Colors.white10)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _statBox('UNDECIDED', '1st', Colors.grey),
+            const Icon(Icons.chevron_right, color: Colors.white24, size: 14),
+            _statBox('WEAK RIVAL', '2nd', Colors.redAccent.withOpacity(0.5)),
+            const Icon(Icons.chevron_right, color: Colors.white24, size: 14),
+            _statBox('STRONG RIVAL', '3rd', Colors.redAccent),
+          ],
+        ),
       ),
     );
   }
@@ -378,7 +438,7 @@ class GameDialogs {
         const Icon(Icons.sync, color: Color(0xFFC5A059), size: 16),
         _miniSquare(true, color: Colors.indigo.withOpacity(0.3)),
         const SizedBox(width: 12),
-        const Text('SAME CLASS ONLY', style: TextStyle(color: Colors.white24, fontSize: 10)),
+        const Flexible(child: Text('SAME CLASS ONLY', style: TextStyle(color: Colors.white24, fontSize: 10))),
       ],
     );
   }
@@ -395,7 +455,7 @@ class GameDialogs {
         children: [
           Icon(Icons.lock_open, color: Color(0xFFC5A059), size: 16),
           SizedBox(width: 12),
-          Text('UNLOCKABLE CENTER', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+          Flexible(child: Text('UNLOCKABLE CENTER', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))),
         ],
       ),
     );

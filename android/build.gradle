@@ -13,6 +13,48 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
+// Ensure all projects (app and plugins) use Java 17 for both Java and Kotlin
+subprojects {
+    def forceJvm17 = { p ->
+        if (p.hasProperty('android')) {
+            p.android {
+                compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_17
+                    targetCompatibility JavaVersion.VERSION_17
+                }
+                // Check if the extension has kotlinOptions
+                try {
+                    p.android.kotlinOptions {
+                        jvmTarget = "17"
+                    }
+                } catch (Exception e) {
+                    // Plugin might not have kotlinOptions on the android extension
+                }
+            }
+        }
+        
+        p.tasks.withType(JavaCompile).configureEach {
+            sourceCompatibility = "17"
+            targetCompatibility = "17"
+        }
+
+        p.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+            kotlinOptions {
+                jvmTarget = "17"
+            }
+        }
+    }
+
+    // Safely apply configuration even if project is already evaluated
+    if (project.state.executed) {
+        forceJvm17(project)
+    } else {
+        project.afterEvaluate {
+            forceJvm17(project)
+        }
+    }
+}
+
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
 }

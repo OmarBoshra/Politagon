@@ -45,6 +45,7 @@ class GridCell extends StatelessWidget {
     return GestureDetector(
       onTap: isTappable ? () => context.read<GridGameBloc>().add(UserMoveEvent(currentPlayer.id, pos)) : null,
       onSecondaryTap: () => GameDialogs.showSquareStatus(context, state, pos),
+      onLongPress: () => GameDialogs.showSquareStatus(context, state, pos),
       child: AnimatedBuilder(
         animation: glowAnimation,
         builder: (context, child) {

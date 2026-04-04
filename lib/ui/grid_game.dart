@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:audioplayers/audioplayers.dart' as ap;
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../bloc/grid_game_event.dart';
 import '../bloc/grid_game_bloc.dart';
@@ -76,7 +75,6 @@ class _GridGameState extends State<GridGame> with TickerProviderStateMixin {
   Future<void> _initAudio() async {
     await _audioPlayer.setReleaseMode(ap.ReleaseMode.loop);
     await _audioPlayer.setSource(ap.AssetSource('sounds/background.m4a'));
-    // Start music by default
     await _audioPlayer.resume();
     if (mounted) {
       setState(() => _isMusicPlaying = true);
@@ -131,11 +129,6 @@ class _GridGameState extends State<GridGame> with TickerProviderStateMixin {
   }
 
   void _showDossier() {
-    // Show the dossier from the GameOptionsPage context. 
-    // Since GameDialogs doesn't have it, and we want consistency, we'll re-implement or find it.
-    // In a real app, I'd extract this to a utility, but for now I will recreate the call to match UI.
-    // However, looking at game_options_page.dart, the _showRules is private.
-    // I will add a method to GameDialogs to show the dossier to keep it clean.
     GameDialogs.showDossier(context);
   }
 
@@ -151,6 +144,8 @@ class _GridGameState extends State<GridGame> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     return BlocBuilder<GridGameBloc, GameState>(
       builder: (context, state) {
         final actualTurnPlayer = state.players.any((p) => p.id == state.turn)
@@ -168,26 +163,49 @@ class _GridGameState extends State<GridGame> with TickerProviderStateMixin {
           child: Scaffold(
             backgroundColor: const Color(0xFF0D1117),
             appBar: AppBar(
-              title: Text(state.isSpectating ? 'SPECTATOR MODE: ${viewedPlayer?.name ?? ""}' : 'POLITAGON OPERATIONAL GRID'),
+              title: Text(
+                state.isSpectating ? 'SPECTATOR: ${viewedPlayer?.name ?? ""}' : 'OPERATIONAL GRID',
+                style: const TextStyle(fontSize: 16),
+              ),
               centerTitle: true,
               actions: [
-                IconButton(
-                  icon: Icon(state.stepByStepMode ? Icons.slow_motion_video : Icons.speed), 
-                  onPressed: () => context.read<GridGameBloc>().add(ToggleStepByStepModeEvent()),
-                  tooltip: 'Toggle Step-by-Step Mode',
-                  color: state.stepByStepMode ? const Color(0xFFC5A059) : null,
-                ),
-                IconButton(icon: const Icon(Icons.pie_chart_outline), onPressed: () => GameDialogs.showPointStatus(context, state), tooltip: 'Point Status'),
-                IconButton(icon: const Icon(Icons.zoom_in), onPressed: () => _animatedZoom(1.2)),
-                IconButton(icon: const Icon(Icons.zoom_out), onPressed: () => _animatedZoom(0.8)),
-                IconButton(icon: const Icon(Icons.zoom_out_map), onPressed: () => _smoothTransform(Matrix4.identity())),
-                IconButton(icon: const Icon(Icons.refresh), onPressed: _restartGame),
-                IconButton(icon: Icon(_isMusicPlaying ? Icons.music_note : Icons.music_off), onPressed: _toggleMusic),
-                IconButton(
-                  icon: const Icon(Icons.menu_book),
-                  onPressed: _showDossier,
-                  tooltip: 'Read Dossier',
-                ),
+                if (!isMobile) ...[
+                  IconButton(
+                    icon: Icon(state.stepByStepMode ? Icons.slow_motion_video : Icons.speed), 
+                    onPressed: () => context.read<GridGameBloc>().add(ToggleStepByStepModeEvent()),
+                    tooltip: 'Toggle Step-by-Step Mode',
+                    color: state.stepByStepMode ? const Color(0xFFC5A059) : null,
+                  ),
+                  IconButton(icon: const Icon(Icons.pie_chart_outline), onPressed: () => GameDialogs.showPointStatus(context, state), tooltip: 'Point Status'),
+                  IconButton(icon: const Icon(Icons.zoom_in), onPressed: () => _animatedZoom(1.2)),
+                  IconButton(icon: const Icon(Icons.zoom_out), onPressed: () => _animatedZoom(0.8)),
+                  IconButton(icon: const Icon(Icons.zoom_out_map), onPressed: () => _smoothTransform(Matrix4.identity())),
+                  IconButton(icon: const Icon(Icons.refresh), onPressed: _restartGame),
+                  IconButton(icon: Icon(_isMusicPlaying ? Icons.music_note : Icons.music_off), onPressed: _toggleMusic),
+                  IconButton(icon: const Icon(Icons.menu_book), onPressed: _showDossier, tooltip: 'Read Dossier'),
+                ] else ...[
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert, color: Color(0xFFC5A059)),
+                    onSelected: (value) {
+                      switch (value) {
+                        case 'step': context.read<GridGameBloc>().add(ToggleStepByStepModeEvent()); break;
+                        case 'status': GameDialogs.showPointStatus(context, state); break;
+                        case 'reset_zoom': _smoothTransform(Matrix4.identity()); break;
+                        case 'restart': _restartGame(); break;
+                        case 'music': _toggleMusic(); break;
+                        case 'dossier': _showDossier(); break;
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      PopupMenuItem(value: 'step', child: Text(state.stepByStepMode ? 'Disable Step-by-Step' : 'Enable Step-by-Step')),
+                      const PopupMenuItem(value: 'status', child: Text('Point Status')),
+                      const PopupMenuItem(value: 'reset_zoom', child: Text('Reset View')),
+                      const PopupMenuItem(value: 'restart', child: Text('Restart Campaign')),
+                      PopupMenuItem(value: 'music', child: Text(_isMusicPlaying ? 'Mute Audio' : 'Unmute Audio')),
+                      const PopupMenuItem(value: 'dossier', child: Text('Read Dossier')),
+                    ],
+                  ),
+                ],
               ],
             ),
             body: BlocListener<GridGameBloc, GameState>(
@@ -196,22 +214,24 @@ class _GridGameState extends State<GridGame> with TickerProviderStateMixin {
                   _focusNode.requestFocus();
                 }
               },
-              child: Column(
-                children: [
-                  Scoreboard(state: state, glowAnimation: _glowAnimationController),
-                  if (state.winner != null) _WinnerBanner(winner: state.winner!),
-                  if (state.isSpectating) SpectatorControls(state: state),
-                  Expanded(
-                    child: Center(
-                      child: _GameGrid(
-                        state: state,
-                        transformationController: _transformationController,
-                        actualTurnPlayer: actualTurnPlayer!,
-                        glowAnimation: _glowAnimationController,
+              child: SafeArea(
+                child: Column(
+                  children: [
+                    Scoreboard(state: state, glowAnimation: _glowAnimationController),
+                    if (state.winner != null) _WinnerBanner(winner: state.winner!),
+                    if (state.isSpectating) SpectatorControls(state: state),
+                    Expanded(
+                      child: Center(
+                        child: _GameGrid(
+                          state: state,
+                          transformationController: _transformationController,
+                          actualTurnPlayer: actualTurnPlayer!,
+                          glowAnimation: _glowAnimationController,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -229,12 +249,12 @@ class _WinnerBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       color: const Color(0xFFC5A059),
       child: Center(
         child: Text(
           'VICTORY: $winner',
-          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 14),
         ),
       ),
     );
@@ -258,7 +278,7 @@ class _GameGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final double availableSize = constraints.biggest.shortestSide * 0.95;
+        final double availableSize = constraints.biggest.shortestSide * 0.98;
         final double cellWidth = availableSize / state.gridSize;
         final double iconSize = (cellWidth * 0.75).clamp(8.0, 48.0);
 
@@ -267,7 +287,9 @@ class _GameGrid extends StatelessWidget {
           height: availableSize,
           child: InteractiveViewer(
             transformationController: transformationController,
-            boundaryMargin: const EdgeInsets.all(200),
+            boundaryMargin: const EdgeInsets.all(100),
+            minScale: 0.5,
+            maxScale: 4.0,
             child: Stack(
               children: [
                 GridView.builder(
