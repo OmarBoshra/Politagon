@@ -6,7 +6,10 @@ import 'package:politagon/ui/video_player_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize MediaKit
   MediaKit.ensureInitialized();
+  
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   runApp(const MyRootApp());
 }

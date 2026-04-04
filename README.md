@@ -17,6 +17,4 @@ samples, guidance on mobile development, and a full API reference.
 
 # todo 
 - better song 
-- app icon
-- start with music on and remove noise .
 - android compatability

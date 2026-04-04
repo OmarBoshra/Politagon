@@ -172,11 +172,6 @@ class _GridGameState extends State<GridGame> with TickerProviderStateMixin {
               centerTitle: true,
               actions: [
                 IconButton(
-                  icon: const Icon(Icons.menu_book, color: Color(0xFFC5A059)),
-                  onPressed: _showDossier,
-                  tooltip: 'Read Dossier',
-                ),
-                IconButton(
                   icon: Icon(state.stepByStepMode ? Icons.slow_motion_video : Icons.speed), 
                   onPressed: () => context.read<GridGameBloc>().add(ToggleStepByStepModeEvent()),
                   tooltip: 'Toggle Step-by-Step Mode',
@@ -188,6 +183,11 @@ class _GridGameState extends State<GridGame> with TickerProviderStateMixin {
                 IconButton(icon: const Icon(Icons.zoom_out_map), onPressed: () => _smoothTransform(Matrix4.identity())),
                 IconButton(icon: const Icon(Icons.refresh), onPressed: _restartGame),
                 IconButton(icon: Icon(_isMusicPlaying ? Icons.music_note : Icons.music_off), onPressed: _toggleMusic),
+                IconButton(
+                  icon: const Icon(Icons.menu_book),
+                  onPressed: _showDossier,
+                  tooltip: 'Read Dossier',
+                ),
               ],
             ),
             body: BlocListener<GridGameBloc, GameState>(
