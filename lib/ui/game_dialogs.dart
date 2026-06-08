@@ -317,6 +317,20 @@ class GameDialogs {
                         'Multiple Candidates can occupy the same cell simultaneously. You do not block others, but the competition for local capital becomes fiercer.',
                         Icons.groups,
                       ),
+                      const SizedBox(height: 32),
+
+                      _buildRuleSection(
+                        '07. GRID INTELLIGENCE',
+                        'The stroke around each square dynamically reflects the percentages of occupation.',
+                        Icons.analytics_outlined,
+                      ),
+                      const SizedBox(height: 32),
+
+                      _buildRuleSection(
+                        '08. ADVANCED ANALYTICS',
+                        'Long-press any square in the grid to view a detailed breakdown of voter distribution and social class statistics.',
+                        Icons.touch_app_outlined,
+                      ),
                     ],
                   ),
                 ),
