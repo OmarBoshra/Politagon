@@ -296,7 +296,7 @@ class _GridGameState extends State<GridGame> with TickerProviderStateMixin, Widg
                           ],
                         ),
                       ),
-                      duration: const Duration(seconds: 2.5),
+                      duration: const Duration(seconds: 2),
                     ),
                   );
                 }
@@ -499,20 +499,22 @@ class _MaturityProgressBar extends StatelessWidget {
                         }
 
                         // Unfilled section (undecided voters)
-                        final unfilledFlex = ((1 - progress) * 100).toInt().clamp(1, 100);
-                        segmentWidgets.add(
-                          Flexible(
-                            flex: unfilledFlex,
-                            child: SizedBox(
-                              width: barWidth,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.03),
+                        final unfilledFlex = ((1 - progress) * 100).toInt();
+                        if (unfilledFlex > 0) {
+                          segmentWidgets.add(
+                            Flexible(
+                              flex: unfilledFlex,
+                              child: SizedBox(
+                                width: barWidth,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.03),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        );
+                          );
+                        }
 
                         return Container(
                           decoration: BoxDecoration(
@@ -592,18 +594,20 @@ class _MaturityProgressBar extends StatelessWidget {
                   }
 
                   // Unfilled section (undecided voters)
-                  final unfilledFlex = ((1 - progress) * 100).toInt().clamp(1, 100);
-                  segmentWidgets.add(
-                    Flexible(
-                      flex: unfilledFlex,
-                      child: Container(
-                        height: barHeight,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.03),
+                  final unfilledFlex = ((1 - progress) * 100).toInt();
+                  if (unfilledFlex > 0) {
+                    segmentWidgets.add(
+                      Flexible(
+                        flex: unfilledFlex,
+                        child: Container(
+                          height: barHeight,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.03),
+                          ),
                         ),
                       ),
-                    ),
-                  );
+                    );
+                  }
 
                   return Container(
                     decoration: BoxDecoration(
