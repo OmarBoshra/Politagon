@@ -13,6 +13,8 @@ class GamePlayerState {
   final PlayerType type;
   final int colorIndex;
   final Position? targetPos;
+  final int lastDistance;
+  final int turnsInCurrentClass;
 
   GamePlayerState({
     required this.id,
@@ -23,6 +25,8 @@ class GamePlayerState {
     required this.type,
     this.colorIndex = 0,
     this.targetPos,
+    this.lastDistance = -1,
+    this.turnsInCurrentClass = 0,
   });
 
   GamePlayerState copyWith({
@@ -31,6 +35,8 @@ class GamePlayerState {
     double? popularity,
     Position? targetPos,
     bool clearTarget = false,
+    int? lastDistance,
+    int? turnsInCurrentClass,
   }) {
     return GamePlayerState(
       id: id,
@@ -41,6 +47,8 @@ class GamePlayerState {
       type: type,
       colorIndex: colorIndex,
       targetPos: clearTarget ? null : (targetPos ?? this.targetPos),
+      lastDistance: lastDistance ?? this.lastDistance,
+      turnsInCurrentClass: turnsInCurrentClass ?? this.turnsInCurrentClass,
     );
   }
 }

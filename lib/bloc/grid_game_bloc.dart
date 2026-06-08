@@ -109,33 +109,32 @@ class GridGameBloc extends Bloc<GridGameEvent, GameState> {
       nextTurn = remainingPlayers[currentIndex % remainingPlayers.length].id;
     }
     
-    if (remainingPlayers.length == 1) {
-      final winner = remainingPlayers.first;
-      emit(state.copyWith(
-        players: remainingPlayers,
-        winner: winner.name,
-        turn: winner.id,
-        isSpectating: winner.type != PlayerType.human,
-        spectatedPlayerId: winner.id,
-        gridOwnership: newGridOwnership,
-      ));
-      if (winner.type == PlayerType.human) _playVictorySound();
-      return;
-    }
-    
     final allAi = remainingPlayers.every((p) => p.type != PlayerType.human);
-    final newState = state.copyWith(
+    
+    var newState = state.copyWith(
       players: remainingPlayers,
       turn: nextTurn,
       isSpectating: allAi,
       spectatedPlayerId: nextTurn,
       gridOwnership: newGridOwnership,
     );
+
+    newState = WinConditionChecker.checkWin(newState, nextTurn);
+
+    if (remainingPlayers.length == 1) {
+      final winner = remainingPlayers.first;
+      emit(newState.copyWith(
+        winner: winner.name,
+        turn: winner.id,
+        isSpectating: winner.type != PlayerType.human,
+        spectatedPlayerId: winner.id,
+      ));
+      if (winner.type == PlayerType.human) _playVictorySound();
+      return;
+    }
+    
     emit(newState);
-    
-    if (allAi && !state.stepByStepMode) return;
-    
-    _processWinAndNextTurn(nextTurn, emit, newState);
+    // User requested that AI doesn't start moving automatically after withdrawal
   }
 
   void _onChangeSpectator(ChangeSpectatorTargetEvent event, Emitter<GameState> emit) {
@@ -166,7 +165,15 @@ class GridGameBloc extends Bloc<GridGameEvent, GameState> {
     
     var validMoves = AdjacentPositions.get(player.pos, state.gridSize, state.gridSize);
     validMoves = validMoves.where((m) => !MoveValidator.isMoveBlockedByCenter(m, player, state)).toList();
-    if (validMoves.isEmpty) { _triggerNextTurn(); return; }
+    if (validMoves.isEmpty) { 
+      final newPlayers = state.players.toList();
+      final currentIndex = newPlayers.indexWhere((p) => p.id == player.id);
+      final nextTurn = newPlayers[(currentIndex + 1) % newPlayers.length].id;
+      final newState = state.copyWith(turn: nextTurn);
+      emit(newState);
+      _triggerNextTurn(newState);
+      return; 
+    }
 
     final centerIdx = state.gridSize ~/ 2;
     final center = Position(centerIdx, centerIdx);
@@ -210,13 +217,14 @@ class GridGameBloc extends Bloc<GridGameEvent, GameState> {
   void _triggerNextTurn([GameState? currentState]) {
     final activeState = currentState ?? state;
     if (activeState.winner != null) return;
-    if (activeState.isSpectating && !activeState.stepByStepMode) return;
+    if (activeState.isSpectating) return; // Don't auto-play when spectating, regardless of mode
     
     final nextPlayerId = activeState.turn;
     final nextPlayer = activeState.players.firstWhere((p) => p.id == nextPlayerId);
+    
     if (nextPlayer.type != PlayerType.human) {
       if (activeState.stepByStepMode) {
-        Future.delayed(const Duration(milliseconds: 1500), () {
+        Future.delayed(const Duration(milliseconds: 900), () {
           if (!isClosed && state.turn == nextPlayerId && state.winner == null) {
             add(AiMoveEvent(nextPlayerId));
           }

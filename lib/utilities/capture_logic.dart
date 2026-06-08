@@ -12,11 +12,13 @@ class CaptureLogic {
     final targetQuality = (maxDist + 1 - distance) / (maxDist + 1).toDouble();
     final extremeQuality = targetQuality * targetQuality;
 
-    final eliteCaptureNeed = extremeQuality;
-    final grassrootsCaptureNeed = 1.0 - extremeQuality;
+    // Influence primarily helps in Elite (inner) rings, but also provides secondary benefit in Grassroots (outer).
+    final influenceBenefit = (player.influence * extremeQuality) + (player.influence * 0.4 * (1.0 - extremeQuality));
+    
+    // Popularity primarily helps in Grassroots (outer) rings, but also provides secondary benefit in Elite (inner).
+    final popularityBenefit = (player.popularity * (1.0 - extremeQuality)) + (player.popularity * 0.4 * extremeQuality);
 
-    return (player.influence * eliteCaptureNeed +
-            player.popularity * grassrootsCaptureNeed).clamp(0.05, 1.0);
+    return (influenceBenefit + popularityBenefit).clamp(0.05, 1.0);
   }
 
   static ({List<List<Map<String, int>>> gridOwnership, int actualCaptured}) captureOwnership({

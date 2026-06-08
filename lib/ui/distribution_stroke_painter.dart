@@ -2,176 +2,188 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/game_state.dart';
 import '../models/position.dart';
-import 'grid_game.dart';
 
-class DistributionStrokePainter extends CustomPainter {
+class GridBackgroundPainter extends CustomPainter {
   final GameState state;
-  final Position pos;
-  final double strokeWidth;
-  final bool isActive;
-  final bool isCenter;
-  final bool showGlow;
-  final double glowValue;
+  final List<(String id, Color color)> playerInfo;
+  final Position? currentPlayerPos;
+  final bool isHumanTurn;
+  final bool isSpectating;
+  final bool isUnlocked;
 
-  DistributionStrokePainter({
-    required this.state, 
-    required this.pos, 
-    this.strokeWidth = 2.0, 
-    this.isActive = false,
-    this.isCenter = false,
-    this.showGlow = false,
-    this.glowValue = 0.0,
+  GridBackgroundPainter({
+    required this.state,
+    required this.playerInfo,
+    required this.currentPlayerPos,
+    required this.isHumanTurn,
+    required this.isSpectating,
+    required this.isUnlocked,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
+    final double cellWidth = size.width / state.gridSize;
+    final int centerIdx = state.gridSize ~/ 2;
+    final int maxDist = centerIdx * 2;
+    const double cellGap = 2.0;
 
-    if (isCenter) {
-      _paintThePolitagonSeat(canvas, size, rect);
-      return;
+    for (int i = 0; i < state.gridSize; i++) {
+      for (int j = 0; j < state.gridSize; j++) {
+        final pos = Position(i, j);
+        final rect = Rect.fromLTWH(j * cellWidth, i * cellWidth, cellWidth, cellWidth);
+        final innerRect = rect.deflate(cellGap);
+        
+        // 1. Draw Social Class Background
+        final distance = (i - centerIdx).abs() + (j - centerIdx).abs();
+        final palette = GameState.getSocialClassPalette(distance, maxDist);
+        final isCenter = i == centerIdx && j == centerIdx;
+        
+        final bool isAdjacent = currentPlayerPos != null && 
+                               (pos.x - currentPlayerPos!.x).abs() + (pos.y - currentPlayerPos!.y).abs() == 1;
+        final bool isTappable = !isSpectating && isHumanTurn && state.winner == null && isAdjacent && (!isCenter || isUnlocked);
+
+        final paint = Paint()
+          ..color = palette[0].withOpacity(isTappable ? 0.9 : 0.6)
+          ..style = PaintingStyle.fill;
+        canvas.drawRect(innerRect, paint);
+
+        // 2. Draw Borders/Strokes
+        if (isCenter) {
+          _drawCenterFrame(canvas, innerRect, isUnlocked);
+        } else {
+          _drawOwnershipStrokes(canvas, innerRect, state.gridOwnership[i][j], isTappable, playerInfo);
+        }
+      }
     }
+  }
 
-    final ownership = state.gridOwnership[pos.x][pos.y];
+  void _drawCenterFrame(Canvas canvas, Rect rect, bool unlocked) {
+    final gold = const Color(0xFFC5A059);
+    final paint = Paint()
+      ..color = unlocked ? gold : gold.withOpacity(0.3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = unlocked ? 2.5 : 1.5;
+    canvas.drawRect(rect.deflate(1), paint);
+  }
+
+  void _drawOwnershipStrokes(Canvas canvas, Rect rect, Map<String, int> ownership, bool isActive, List<(String, Color)> playerInfo) {
     final total = ownership.values.fold(0, (sum, v) => sum + v);
+    final strokeWidth = isActive ? 3.0 : 1.5;
     
     if (total == 0) {
       final paint = Paint()
         ..color = Colors.white.withOpacity(0.05)
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeWidth;
-      canvas.drawRect(rect, paint);
+      canvas.drawRect(rect.deflate(1), paint);
       return;
     }
 
-    final segments = <StrokeSegment>[];
+    final perimeter = rect.width * 4;
+    double currentDist = 0;
+
+    // Undecided
     final undecided = ownership['undecided'] ?? 0;
     if (undecided > 0) {
-      segments.add(StrokeSegment(undecided / total, Colors.grey.withOpacity(isActive ? 0.8 : 0.3)));
+      final length = (undecided / total) * perimeter;
+      _drawSegment(canvas, rect, currentDist, length, Colors.grey.withOpacity(isActive ? 0.8 : 0.3), strokeWidth);
+      currentDist += length;
     }
 
-    for (var player in state.players) {
-      final share = ownership[player.id] ?? 0;
+    // Players
+    for (var p in playerInfo) {
+      final share = ownership[p.$1] ?? 0;
       if (share > 0) {
-        segments.add(StrokeSegment(share / total, GridGame.getGlobalPlayerColor(player).withOpacity(isActive ? 1.0 : 0.6)));
+        final length = (share / total) * perimeter;
+        _drawSegment(canvas, rect, currentDist, length, p.$2.withOpacity(isActive ? 1.0 : 0.6), strokeWidth);
+        currentDist += length;
       }
-    }
-
-    double currentProgress = 0.0;
-    final perimeter = size.width * 2 + size.height * 2;
-
-    for (var segment in segments) {
-      final segmentLength = segment.ratio * perimeter;
-      final startDist = currentProgress;
-      final endDist = currentProgress + segmentLength;
-      
-      _drawSegment(canvas, size, startDist, endDist, segment.color, strokeWidth);
-      currentProgress += segmentLength;
-    }
-
-    if (isActive) {
-      final paint = Paint()
-        ..color = Colors.white.withOpacity(0.2)
-        ..strokeWidth = 1.0
-        ..style = PaintingStyle.stroke;
-      canvas.drawRect(rect.inflate(1.0), paint);
     }
   }
 
-  void _paintThePolitagonSeat(Canvas canvas, Size size, Rect rect) {
-    final gold = const Color(0xFFC5A059);
-    final coreGold = const Color(0xFFFFD700);
-    final center = rect.center;
-
-    // 1. Radial "Solar" Glow behind the chair
-    if (showGlow) {
-      final sunPaint = Paint()
-        ..shader = RadialGradient(
-          colors: [
-            coreGold.withOpacity(0.8 * glowValue),
-            gold.withOpacity(0.4 * glowValue),
-            Colors.transparent,
-          ],
-        ).createShader(Rect.fromCircle(center: center, radius: size.width * 0.8));
-      
-      canvas.drawCircle(center, size.width * 0.75 * (0.8 + 0.2 * glowValue), sunPaint);
-
-      // 2. Light Rays (Solar Corona effect)
-      final rayPaint = Paint()
-        ..color = coreGold.withOpacity(0.3 * glowValue)
-        ..strokeWidth = 2.0;
-      
-      for (int i = 0; i < 8; i++) {
-        final angle = (i * pi / 4) + (glowValue * 0.2);
-        final rayStart = Offset(center.dx + cos(angle) * (size.width * 0.2), center.dy + sin(angle) * (size.height * 0.2));
-        final rayEnd = Offset(center.dx + cos(angle) * (size.width * 0.45), center.dy + sin(angle) * (size.height * 0.45));
-        canvas.drawLine(rayStart, rayEnd, rayPaint);
-      }
-    }
-
-    // 3. Main Outer Frame (Dark obsidian border with gold trim)
-    final framePaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = showGlow ? 3.0 : 1.5
-      ..color = showGlow ? gold : gold.withOpacity(0.3);
-    canvas.drawRect(rect, framePaint);
-
-    // 4. Inner "Throne Room" detailing
-    final detailPaint = Paint()
-      ..color = gold.withOpacity(showGlow ? 0.4 : 0.1)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-    
-    // Four corner accents pointing inward
-    const inset = 4.0;
-    final l = size.width * 0.2;
-    canvas.drawPath(Path()..moveTo(inset, inset + l)..lineTo(inset, inset)..lineTo(inset + l, inset), detailPaint);
-    canvas.drawPath(Path()..moveTo(size.width - inset, inset + l)..lineTo(size.width - inset, inset)..lineTo(size.width - inset - l, inset), detailPaint);
-    canvas.drawPath(Path()..moveTo(inset, size.height - inset - l)..lineTo(inset, size.height - inset)..lineTo(inset + l, size.height - inset), detailPaint);
-    canvas.drawPath(Path()..moveTo(size.width - inset, size.height - inset - l)..lineTo(size.width - inset, size.height - inset)..lineTo(size.width - inset - l, size.height - inset), detailPaint);
-  }
-
-  void _drawSegment(Canvas canvas, Size size, double startDist, double endDist, Color color, double width) {
+  void _drawSegment(Canvas canvas, Rect rect, double start, double length, Color color, double width) {
+    if (length <= 0) return;
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
       ..strokeWidth = width;
 
-    final path = Path();
-    final perimeter = 2 * size.width + 2 * size.height;
+    final w = rect.width;
+    final h = rect.height;
+    final perimeter = 2 * w + 2 * h;
     
-    for (double d = startDist; d < endDist; d += 1.0) {
-      final point = _getPointOnRect(size, d);
-      if (d == startDist) path.moveTo(point.dx, point.dy);
-      else path.lineTo(point.dx, point.dy);
-    }
-    
-    final lastPoint = _getPointOnRect(size, endDist % perimeter);
-    path.lineTo(lastPoint.dx, lastPoint.dy);
+    double remaining = length;
+    double current = start % perimeter;
 
-    canvas.drawPath(path, paint);
+    while (remaining > 0) {
+      Offset p1 = _getPointOnRect(rect, current);
+      Offset p2;
+      double step;
+
+      if (current < w) {
+        step = min(remaining, w - current);
+        p2 = Offset(rect.left + current + step, rect.top);
+      } else if (current < w + h) {
+        step = min(remaining, (w + h) - current);
+        p2 = Offset(rect.right, rect.top + (current - w) + step);
+      } else if (current < 2 * w + h) {
+        step = min(remaining, (2 * w + h) - current);
+        p2 = Offset(rect.right - (current - (w + h) + step), rect.bottom);
+      } else {
+        step = min(remaining, perimeter - current);
+        p2 = Offset(rect.left, rect.bottom - (current - (2 * w + h) + step));
+      }
+      
+      canvas.drawLine(p1, p2, paint);
+      current = (current + step) % perimeter;
+      remaining -= step;
+      if (step <= 0) break; 
+    }
   }
 
-  Offset _getPointOnRect(Size size, double distance) {
-    final double w = size.width;
-    final double h = size.height;
-    double d = distance % (2 * w + 2 * h);
-
-    if (d <= w) return Offset(d, 0);
-    d -= w;
-    if (d <= h) return Offset(w, d);
-    d -= h;
-    if (d <= w) return Offset(w - d, h);
-    d -= w;
-    return Offset(0, h - d);
+  Offset _getPointOnRect(Rect rect, double d) {
+    final w = rect.width;
+    final h = rect.height;
+    if (d <= w) return Offset(rect.left + d, rect.top);
+    if (d <= w + h) return Offset(rect.right, rect.top + (d - w));
+    if (d <= 2 * w + h) return Offset(rect.right - (d - (w + h)), rect.bottom);
+    return Offset(rect.left, rect.bottom - (d - (2 * w + h)));
   }
 
   @override
-  bool shouldRepaint(covariant DistributionStrokePainter oldDelegate) => true;
+  bool shouldRepaint(covariant GridBackgroundPainter oldDelegate) {
+    return oldDelegate.state != state || 
+           oldDelegate.currentPlayerPos != currentPlayerPos ||
+           oldDelegate.isHumanTurn != isHumanTurn ||
+           oldDelegate.isUnlocked != isUnlocked;
+  }
 }
 
-class StrokeSegment {
-  final double ratio;
+class CellGlowPainter extends CustomPainter {
+  final double glowValue;
   final Color color;
-  StrokeSegment(this.ratio, this.color);
+
+  CellGlowPainter({required this.glowValue, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final center = rect.center;
+    final gold = const Color(0xFFC5A059);
+    final coreGold = const Color(0xFFFFD700);
+
+    final sunPaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          coreGold.withOpacity(0.6 * glowValue),
+          gold.withOpacity(0.3 * glowValue),
+          Colors.transparent,
+        ],
+      ).createShader(Rect.fromCircle(center: center, radius: size.width * 0.7));
+    
+    canvas.drawCircle(center, size.width * 0.6 * (0.9 + 0.1 * glowValue), sunPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CellGlowPainter oldDelegate) => oldDelegate.glowValue != glowValue;
 }

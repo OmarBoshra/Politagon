@@ -1,13 +1,14 @@
 plugins {
     id "com.android.application"
-    id "kotlin-android"
     id "dev.flutter.flutter-gradle-plugin"
 }
 
 android {
     namespace = "com.politagon.game"
     compileSdk = 36
-    ndkVersion = flutter.ndkVersion
+    
+    // Explicitly set NDK r27 or higher to ensure 16 KB alignment support
+    ndkVersion = "27.0.12077973" 
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -20,15 +21,35 @@ android {
 
     defaultConfig {
         applicationId = "com.politagon.game"
-        minSdk = 21 
+        minSdkVersion = flutter.minSdkVersion 
         targetSdk = 36
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
+        versionCode = 3
+        versionName = "1.0.0"
+
+        resourceConfigurations += ["en"]
+        
+        // Ensure the NDK builds for 16 KB
+        externalNativeBuild {
+            ndkBuild {
+                arguments "APP_SUPPORT_FLEXIBLE_PAGE_SIZES:=true"
+            }
+        }
+    }
+
+    // Modern 'packaging' block for AGP 8.5.1+
+    packaging {
+        jniLibs {
+            // Required for 16 KB: ensures libraries are uncompressed in the APK
+            useLegacyPackaging = false
+        }
     }
 
     buildTypes {
         release {
             signingConfig = signingConfigs.debug
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }

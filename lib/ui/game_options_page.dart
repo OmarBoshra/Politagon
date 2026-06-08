@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/game_player_state.dart';
 import 'home_page.dart';
 import 'video_player_page.dart';
@@ -60,9 +61,19 @@ class _GameOptionsPageState extends State<GameOptionsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('CAMPAIGN CONFIGURATION'),
+        title: const Text('CONFIGURATION'),
         centerTitle: true,
         actions: [
+          IconButton(
+            icon: SvgPicture.string(
+              '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="white"/></svg>',
+              width: 20,
+              height: 20,
+              colorFilter: const ColorFilter.mode(Color(0xFFC5A059), BlendMode.srcIn),
+            ),
+            onPressed: () => launchUrl(Uri.parse('https://sites.google.com/view/politagon/support')),
+            tooltip: 'Support the Project',
+          ),
           IconButton(
             icon: const Icon(Icons.menu_book, color: Color(0xFFC5A059)),
             onPressed: _showRules,

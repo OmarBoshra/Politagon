@@ -29,7 +29,7 @@ class GameState {
     this.couldReachCenter,
     this.isSpectating = false,
     this.spectatedPlayerId,
-    this.stepByStepMode = false,
+    this.stepByStepMode = true,
     this.decidedThresholdPercentage = 0.51,
   });
 

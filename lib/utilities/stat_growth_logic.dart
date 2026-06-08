@@ -27,9 +27,16 @@ class StatGrowthLogic {
     final double infContributionWeight = 0.15 + (0.70 * extremeQuality);
     final double popContributionWeight = 0.15 + (0.70 * (1.0 - extremeQuality));
 
-    final newInfluence = (((player.influence * currentWeight) + (actualCaptured * infContributionWeight) + (0.1 * baseWeight)) / totalWeight).clamp(0.05, 1.0);
-    final newPopularity = (((player.popularity * currentWeight) + (actualCaptured * popContributionWeight) + (0.1 * baseWeight)) / totalWeight).clamp(0.05, 1.0);
+    double newInfluence = (((player.influence * currentWeight) + (actualCaptured * infContributionWeight) + (0.1 * baseWeight)) / totalWeight);
+    double newPopularity = (((player.popularity * currentWeight) + (actualCaptured * popContributionWeight) + (0.1 * baseWeight)) / totalWeight);
 
-    return (newInfluence, newPopularity);
+    // Dilution Logic: Staying in the same social class for more than 3 turns leads to stagnation and dilution of power.
+    if (player.turnsInCurrentClass > 3) {
+      final dilutionFactor = (1.0 - (0.05 * (player.turnsInCurrentClass - 3))).clamp(0.7, 1.0);
+      newInfluence *= dilutionFactor;
+      newPopularity *= dilutionFactor;
+    }
+
+    return (newInfluence.clamp(0.05, 1.0), newPopularity.clamp(0.05, 1.0));
   }
 }

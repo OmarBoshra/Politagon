@@ -6,46 +6,136 @@ import 'grid_game.dart';
 import 'player_icon.dart';
 import 'game_dialogs.dart';
 
-class Scoreboard extends StatelessWidget {
+class Scoreboard extends StatefulWidget {
   final GameState state;
   final Animation<double> glowAnimation;
+  final bool isLandscape;
+  final String currentPlayerId;
 
   const Scoreboard({
     super.key,
     required this.state,
     required this.glowAnimation,
+    this.isLandscape = false,
+    required this.currentPlayerId,
   });
 
   @override
+  State<Scoreboard> createState() => _ScoreboardState();
+}
+
+class _ScoreboardState extends State<Scoreboard> {
+  late ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToCurrentPlayer();
+    });
+  }
+
+  @override
+  void didUpdateWidget(Scoreboard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currentPlayerId != widget.currentPlayerId) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToCurrentPlayer();
+      });
+    }
+  }
+
+  void _scrollToCurrentPlayer() {
+    final index = widget.state.players.indexWhere((p) => p.id == widget.currentPlayerId);
+    if (index == -1) return;
+
+    if (!_scrollController.hasClients) return;
+
+    // Get the current scroll position info
+    final maxExtent = _scrollController.position.maxScrollExtent;
+    final viewportDimension = _scrollController.position.viewportDimension;
+    
+    // If content fits in viewport, no need to scroll
+    if (maxExtent <= 0) return;
+
+    // Calculate scroll position: distribute remaining space evenly between cards
+    // For spacing, assume each card + padding takes approximately equal space
+    final numCards = widget.state.players.length;
+    final totalContentSize = maxExtent + viewportDimension;
+    final cardSize = totalContentSize / numCards;
+    
+    // Target position: center of the current player's card in the viewport
+    final cardCenterPosition = (index * cardSize) + (cardSize / 2);
+    final viewportCenter = viewportDimension / 2;
+    final targetScroll = (cardCenterPosition - viewportCenter).clamp(0.0, maxExtent);
+
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        targetScroll,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final scrollAxis = widget.isLandscape ? Axis.vertical : Axis.horizontal;
+
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: const BoxDecoration(
         color: Color(0xFF161B22),
         border: Border(bottom: BorderSide(color: Color(0xFFC5A059), width: 0.5)),
       ),
       child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: state.players.map((p) {
-            final score = ScoreCalculator.calculateScore(state, p.id);
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12.0),
-              child: _ScoreItem(
-                player: p,
-                score: score,
-                isCurrentTurn: p.id == state.turn,
-                state: state,
-                glowAnimation: glowAnimation,
+        scrollDirection: scrollAxis,
+        controller: _scrollController,
+        child: widget.isLandscape
+            ? Column(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: widget.state.players.map((p) {
+                  final score = ScoreCalculator.calculateScore(widget.state, p.id);
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 5.0),
+                    child: _ScoreItem(
+                      player: p,
+                      score: score,
+                      isCurrentTurn: p.id == widget.currentPlayerId,
+                      state: widget.state,
+                      glowAnimation: widget.glowAnimation,
+                    ),
+                  );
+                }).toList(),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: widget.state.players.map((p) {
+                  final score = ScoreCalculator.calculateScore(widget.state, p.id);
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 5.0),
+                    child: _ScoreItem(
+                      player: p,
+                      score: score,
+                      isCurrentTurn: p.id == widget.currentPlayerId,
+                      state: widget.state,
+                      glowAnimation: widget.glowAnimation,
+                    ),
+                  );
+                }).toList(),
               ),
-            );
-          }).toList(),
-        ),
       ),
     );
   }
 }
+
 
 class _ScoreItem extends StatelessWidget {
   final GamePlayerState player;
@@ -65,8 +155,9 @@ class _ScoreItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final playerColor = GridGame.getGlobalPlayerColor(player);
+    final isHuman = player.type == PlayerType.human;
 
-    return Container(
+    final card = Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: isCurrentTurn ? playerColor.withOpacity(0.08) : Colors.transparent,
@@ -76,8 +167,8 @@ class _ScoreItem extends StatelessWidget {
       child: Column(
         children: [
           Row(children: [
-            PlayerIcon(player: player, size: 14.0, isCurrentTurn: false), 
-            const SizedBox(width: 6), 
+            PlayerIcon(player: player, size: 14.0, isCurrentTurn: false),
+            const SizedBox(width: 6),
             Text(player.name.toUpperCase(), style: TextStyle(fontWeight: FontWeight.bold, color: isCurrentTurn ? playerColor : Colors.white70, fontSize: 10))
           ]),
           const SizedBox(height: 4),
@@ -90,18 +181,16 @@ class _ScoreItem extends StatelessWidget {
               _MiniStat(label: 'POP', value: player.popularity, color: const Color(0xFFC5A059)),
             ],
           ),
-          if (!state.isSpectating && isCurrentTurn && player.type == PlayerType.human && state.players.length > 1)
-            GestureDetector(
-              onTap: () => GameDialogs.showWithdrawDialog(context, player.id),
-              child: Container(
-                margin: const EdgeInsets.only(top: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                decoration: BoxDecoration(color: Colors.redAccent.withOpacity(0.15), border: Border.all(color: Colors.redAccent.withOpacity(0.6), width: 1), borderRadius: BorderRadius.circular(3)),
-                child: const Text('WITHDRAW', style: TextStyle(fontSize: 9, color: Colors.redAccent, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
-              ),
-            ),
         ],
       ),
+    );
+
+    if (!isHuman) return card;
+
+    return InkWell(
+      onTap: () => GameDialogs.showPlayerStatus(context, state, player),
+      borderRadius: BorderRadius.circular(4),
+      child: card,
     );
   }
 }

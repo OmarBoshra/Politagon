@@ -1,7 +1,7 @@
 name: politagon
 description: "political strategy game"
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.1+3
 
 environment:
   sdk: ^3.6.0
@@ -16,9 +16,10 @@ dependencies:
   flutter_svg: ^2.2.0
   cupertino_icons: ^1.0.8
   shared_preferences: ^2.3.5
+  url_launcher: ^6.3.1
   # High-performance video engine
   media_kit: ^1.1.10
-  media_kit_video: ^1.2.4
+  media_kit_video: 2.0.1
   media_kit_libs_video: ^1.0.4
   media_kit_libs_android_video: ^1.0.0
 
@@ -36,10 +37,10 @@ dev_dependencies:
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
-  image_path: "assets/icon_windows.png"
+  image_path: "assets/icon_windows.webp"
   windows:
     generate: true
-    image_path: "assets/icon_windows.png"
+    image_path: "assets/icon_windows.webp"
     icon_size: 256
 
 msix_config:
@@ -47,7 +48,7 @@ msix_config:
   publisher_display_name: Politagon Studio
   publisher: CN=Politagon
   identity_name: com.politagon.game
-  msix_version: 1.0.0.0
+  msix_version: 1.0.1.0
   logo_path: assets/icon_windows.png
   capabilities: internetClient, location, microphone, webcam
   generate_signing_certificate: true
@@ -60,7 +61,8 @@ flutter:
   uses-material-design: true
   assets:
     - assets/sounds/victory.mp3
+    - assets/logo.webp
     - assets/sounds/background.m4a
-    - assets/logo.jpg
     - assets/videos/politagon_thriller.mp4
     - assets/videos/game_start.mp4
+    - assets/svg/classes/

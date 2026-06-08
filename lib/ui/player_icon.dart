@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import '../models/game_player_state.dart';
 import 'grid_game.dart';
+import '../models/game_player_state.dart';
 
 class PlayerIcon extends StatelessWidget {
   final GamePlayerState player;
@@ -20,26 +19,41 @@ class PlayerIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = GridGame.getGlobalPlayerColor(player);
-    final hex = color.value.toRadixString(16).padLeft(8, '0').substring(2);
-    final svgString = '<svg viewBox="0 0 24 24"><path fill="#$hex" d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>';
     
-    Widget icon = SvgPicture.string(svgString, width: size, height: size);
+    // Using a standard Icon with reduced opacity so grid numbers remain visible
+    Widget icon = Opacity(
+      opacity: 0.7,
+      child: Icon(
+        Icons.person,
+        color: color,
+        size: size,
+      ),
+    );
 
     if (isCurrentTurn && glowAnimation != null) {
-      return AnimatedBuilder(
-        animation: glowAnimation!,
-        builder: (context, child) => Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: color.withOpacity(0.15 + (glowAnimation!.value * 0.15)),
-                blurRadius: 4 + (glowAnimation!.value * 4),
-                spreadRadius: 1 + (glowAnimation!.value * 2),
-              )
-            ],
+      return RepaintBoundary(
+        child: AnimatedBuilder(
+          animation: glowAnimation!,
+          builder: (context, child) => Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                // Inner prominent glow layer
+                BoxShadow(
+                  color: color.withOpacity(0.3 + (glowAnimation!.value * 0.2)),
+                  blurRadius: size * 0.3 * (0.8 + glowAnimation!.value * 0.4),
+                  spreadRadius: size * 0.1 + (size * 0.15 * glowAnimation!.value),
+                ),
+                // Outer softer glow layer for depth
+                BoxShadow(
+                  color: color.withOpacity(0.15 + (glowAnimation!.value * 0.15)),
+                  blurRadius: size * 0.6 * (1.0 + glowAnimation!.value * 0.5),
+                  spreadRadius: size * 0.05 + (size * 0.1 * glowAnimation!.value),
+                ),
+              ],
+            ),
+            child: icon,
           ),
-          child: icon,
         ),
       );
     }

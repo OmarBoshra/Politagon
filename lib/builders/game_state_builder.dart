@@ -33,6 +33,11 @@ class GameStateBuilder {
     var newGridOwnership = captureResult.gridOwnership;
     final actualCaptured = captureResult.actualCaptured;
 
+    final centerIdx = state.gridSize ~/ 2;
+    final newDistance = (pos.x - centerIdx).abs() + (pos.y - centerIdx).abs();
+    final sameClass = newDistance == currentPlayer.lastDistance;
+    final newTurnsInClass = sameClass ? (currentPlayer.turnsInCurrentClass + 1) : 1;
+
     final (newInfluence, newPopularity) = StatGrowthLogic.calculateNewStats(
       state: state,
       player: currentPlayer,
@@ -47,7 +52,13 @@ class GameStateBuilder {
 
     final newPlayers = state.players.map((p) {
       if (p.id == playerId) {
-        return p.copyWith(pos: pos, influence: newInfluence, popularity: newPopularity);
+        return p.copyWith(
+          pos: pos, 
+          influence: newInfluence, 
+          popularity: newPopularity,
+          lastDistance: newDistance,
+          turnsInCurrentClass: newTurnsInClass,
+        );
       }
       return p;
     }).toList();

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'game_options_page.dart';
 
@@ -11,6 +12,8 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
+  bool _skipped = false;
+  Timer? _timer;
 
   @override
   void initState() {
@@ -25,23 +28,30 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     _controller.forward();
 
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        Navigator.of(context).pushReplacement(
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => const GameOptionsPage(),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              return FadeTransition(opacity: animation, child: child);
-            },
-            transitionDuration: const Duration(milliseconds: 800),
-          ),
-        );
-      }
+    _timer = Timer(const Duration(seconds: 4), () {
+      _goToNextPage();
     });
+  }
+
+  void _goToNextPage() {
+    if (_skipped || !mounted) return;
+    setState(() => _skipped = true);
+    _timer?.cancel();
+    
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => const GameOptionsPage(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+        transitionDuration: const Duration(milliseconds: 800),
+      ),
+    );
   }
 
   @override
   void dispose() {
+    _timer?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -50,49 +60,74 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0D1117),
-      body: FadeTransition(
-        opacity: _fadeAnimation,
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+      body: GestureDetector(
+        onTap: _goToNextPage,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox.expand(
+          child: Stack(
             children: [
-              Container(
-                width: 200,
-                height: 200,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFFC5A059), width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFC5A059).withOpacity(0.2),
-                      blurRadius: 30,
-                      spreadRadius: 10,
-                    ),
-                  ],
-                ),
-                child: ClipOval(
-                  child: Image.asset(
-                    'assets/logo.jpg',
-                    fit: BoxFit.cover,
+              FadeTransition(
+                opacity: _fadeAnimation,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 200,
+                        height: 200,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: const Color(0xFFC5A059), width: 2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFC5A059).withOpacity(0.2),
+                              blurRadius: 30,
+                              spreadRadius: 10,
+                            ),
+                          ],
+                        ),
+                        child: ClipOval(
+                          child: Image.asset(
+                            'assets/logo.webp',
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 40),
+                      Text(
+                        'POLITAGON',
+                        style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                          letterSpacing: 8.0,
+                          fontSize: 40,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'THE ART OF POWER POLITICS',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.5),
+                          letterSpacing: 4.0,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w300,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(height: 40),
-              Text(
-                'POLITAGON',
-                style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                  letterSpacing: 8.0,
-                  fontSize: 40,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'THE ART OF POWER POLITICS',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.5),
-                  letterSpacing: 4.0,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w300,
+              Positioned(
+                bottom: 40,
+                right: 20,
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: Text(
+                    'TAP TO SKIP',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.2),
+                      fontSize: 10,
+                      letterSpacing: 2,
+                    ),
+                  ),
                 ),
               ),
             ],
